@@ -1,27 +1,19 @@
 import uuid
-from contextlib import asynccontextmanager
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.database import Base, engine, get_db
+from app.database import get_db
 from app.models import MemoryStone
 from app.schemas import MemoryStoneCreate, MemoryStoneRead
-
-
-@asynccontextmanager
-async def lifespan(_: FastAPI):
-    Base.metadata.create_all(bind=engine)
-    yield
 
 
 app = FastAPI(
     title="Ebe API",
     description="The memory and context service for Ebe.",
-    version="0.2.0",
-    lifespan=lifespan,
+    version="0.3.0",
 )
 
 DatabaseSession = Annotated[Session, Depends(get_db)]
