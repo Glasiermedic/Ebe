@@ -5,6 +5,20 @@ from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class PersonCreate(BaseModel):
+    display_name: str = Field(min_length=1, max_length=200)
+    description: str | None = None
+
+
+class PersonRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    display_name: str
+    description: str | None
+    created_at: datetime
+
+
 class MemoryStoneCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     content: str = Field(min_length=1)
@@ -44,5 +58,16 @@ class MemoryStoneRead(BaseModel):
     confidence: Decimal
     is_inferred: bool
 
+    people: list[PersonRead]
+
     created_at: datetime
     updated_at: datetime
+
+
+class MemoryStonePersonLinkCreate(BaseModel):
+    person_id: uuid.UUID
+    relationship_type: str = Field(
+        default="mentioned",
+        min_length=1,
+        max_length=50,
+    )
