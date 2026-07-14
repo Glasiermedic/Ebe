@@ -8,6 +8,11 @@ def test_create_memory_stone(client: TestClient) -> None:
             "title": "A test memory",
             "content": "This memory exists only inside the test database.",
             "stone_type": "test",
+            "source_type": "conversation",
+            "source_reference": "A direct conversation with the user",
+            "remembered_at": "2026-07-14",
+            "confidence": 0.875,
+            "is_inferred": False,
         },
     )
 
@@ -20,9 +25,39 @@ def test_create_memory_stone(client: TestClient) -> None:
         "This memory exists only inside the test database."
     )
     assert body["stone_type"] == "test"
+    assert body["source_type"] == "conversation"
+    assert body["source_reference"] == (
+        "A direct conversation with the user"
+    )
+    assert body["remembered_at"] == "2026-07-14"
+    assert body["confidence"] == "0.875"
+    assert body["is_inferred"] is False
     assert body["id"]
     assert body["created_at"]
     assert body["updated_at"]
+
+
+def test_create_memory_stone_with_defaults(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/stones",
+        json={
+            "title": "Default provenance",
+            "content": "This stone uses provenance defaults.",
+        },
+    )
+
+    assert response.status_code == 201
+
+    body = response.json()
+
+    assert body["stone_type"] == "memory"
+    assert body["source_type"] == "user_entry"
+    assert body["source_reference"] is None
+    assert body["remembered_at"] is None
+    assert body["confidence"] == "1.000"
+    assert body["is_inferred"] is False
 
 
 def test_list_memory_stones(client: TestClient) -> None:
@@ -92,6 +127,19 @@ def test_reject_empty_memory_stone(client: TestClient) -> None:
             "title": "",
             "content": "",
             "stone_type": "test",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_reject_invalid_confidence(client: TestClient) -> None:
+    response = client.post(
+        "/stones",
+        json={
+            "title": "Invalid confidence",
+            "content": "Confidence cannot exceed one.",
+            "confidence": 1.5,
         },
     )
 

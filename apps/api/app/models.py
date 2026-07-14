@@ -1,7 +1,17 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 
-from sqlalchemy import DateTime, String, Text, func
+from sqlalchemy import (
+    Boolean,
+    Date,
+    DateTime,
+    Numeric,
+    String,
+    Text,
+    func,
+    text,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -31,6 +41,38 @@ class MemoryStone(Base):
         String(50),
         nullable=False,
         default="memory",
+        server_default=text("'memory'"),
+    )
+
+    source_type: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="user_entry",
+        server_default=text("'user_entry'"),
+    )
+
+    source_reference: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    remembered_at: Mapped[date | None] = mapped_column(
+        Date,
+        nullable=True,
+    )
+
+    confidence: Mapped[Decimal] = mapped_column(
+        Numeric(4, 3),
+        nullable=False,
+        default=Decimal("1.000"),
+        server_default=text("1.000"),
+    )
+
+    is_inferred: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("false"),
     )
 
     created_at: Mapped[datetime] = mapped_column(
