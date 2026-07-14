@@ -53,8 +53,9 @@ def test_link_person_to_memory_stone(client: TestClient) -> None:
     body = response.json()
 
     assert len(body["people"]) == 1
-    assert body["people"][0]["id"] == person_id
-    assert body["people"][0]["display_name"] == "Robert"
+    assert body["people"][0]["relationship_type"] == "subject"
+    assert body["people"][0]["person"]["id"] == person_id
+    assert body["people"][0]["person"]["display_name"] == "Robert"
 
 
 def test_reject_missing_person_link(client: TestClient) -> None:

@@ -1,28 +1,197 @@
 import uuid
-from typing import Annotated
+from typing import Annotated, Any, TypeVar
 
 from fastapi import Depends, FastAPI, HTTPException, status
-from sqlalchemy import select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy import Table, select
+from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import MemoryStone, Person, memory_stone_people
+from app.models import (
+    Event,
+    MemoryStone,
+    Person,
+    Place,
+    memory_stone_events,
+    memory_stone_people,
+    memory_stone_places,
+)
 from app.schemas import (
+    EventCreate,
+    EventRead,
     MemoryStoneCreate,
+    MemoryStoneEventLinkCreate,
     MemoryStonePersonLinkCreate,
+    MemoryStonePlaceLinkCreate,
     MemoryStoneRead,
     PersonCreate,
     PersonRead,
+    PlaceCreate,
+    PlaceRead,
 )
 
 
 app = FastAPI(
     title="Ebe API",
     description="The memory and context service for Ebe.",
-    version="0.4.0",
+    version="0.6.0",
 )
 
 DatabaseSession = Annotated[Session, Depends(get_db)]
+RelatedModel = TypeVar("RelatedModel", Person, Place, Event)
+
+
+def get_memory_stone_or_404(
+    stone_id: uuid.UUID,
+    db: Session,
+) -> MemoryStone:
+    stone = db.get(MemoryStone, stone_id)
+
+    if stone is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Memory Stone not found",
+        )
+
+    return stone
+
+
+def serialize_memory_stone(
+    stone: MemoryStone,
+    db: Session,
+) -> dict[str, Any]:
+    person_rows = db.execute(
+        select(
+            memory_stone_people.c.relationship_type,
+            Person,
+        )
+        .join(
+            Person,
+            Person.id == memory_stone_people.c.person_id,
+        )
+        .where(
+            memory_stone_people.c.memory_stone_id == stone.id,
+        )
+        .order_by(Person.display_name)
+    ).all()
+
+    place_rows = db.execute(
+        select(
+            memory_stone_places.c.relationship_type,
+            Place,
+        )
+        .join(
+            Place,
+            Place.id == memory_stone_places.c.place_id,
+        )
+        .where(
+            memory_stone_places.c.memory_stone_id == stone.id,
+        )
+        .order_by(Place.display_name)
+    ).all()
+
+    event_rows = db.execute(
+        select(
+            memory_stone_events.c.relationship_type,
+            Event,
+        )
+        .join(
+            Event,
+            Event.id == memory_stone_events.c.event_id,
+        )
+        .where(
+            memory_stone_events.c.memory_stone_id == stone.id,
+        )
+        .order_by(Event.started_at.desc().nullslast())
+    ).all()
+
+    return {
+        "id": stone.id,
+        "title": stone.title,
+        "content": stone.content,
+        "stone_type": stone.stone_type,
+        "source_type": stone.source_type,
+        "source_reference": stone.source_reference,
+        "remembered_at": stone.remembered_at,
+        "confidence": stone.confidence,
+        "is_inferred": stone.is_inferred,
+        "people": [
+            {
+                "relationship_type": relationship_type,
+                "person": person,
+            }
+            for relationship_type, person in person_rows
+        ],
+        "places": [
+            {
+                "relationship_type": relationship_type,
+                "place": place,
+            }
+            for relationship_type, place in place_rows
+        ],
+        "events": [
+            {
+                "relationship_type": relationship_type,
+                "event": event,
+            }
+            for relationship_type, event in event_rows
+        ],
+        "created_at": stone.created_at,
+        "updated_at": stone.updated_at,
+    }
+
+
+def create_relationship(
+    *,
+    stone_id: uuid.UUID,
+    related_id: uuid.UUID,
+    related_model: type[RelatedModel],
+    association_table: Table,
+    related_column_name: str,
+    relationship_type: str,
+    missing_detail: str,
+    db: Session,
+) -> dict[str, Any]:
+    stone = get_memory_stone_or_404(stone_id, db)
+    related_object = db.get(related_model, related_id)
+
+    if related_object is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=missing_detail,
+        )
+
+    related_column = association_table.c[related_column_name]
+
+    existing_link = db.execute(
+        select(association_table).where(
+            association_table.c.memory_stone_id == stone_id,
+            related_column == related_id,
+        )
+    ).first()
+
+    if existing_link is None:
+        db.execute(
+            association_table.insert().values(
+                memory_stone_id=stone_id,
+                **{
+                    related_column_name: related_id,
+                    "relationship_type": relationship_type,
+                },
+            )
+        )
+    else:
+        db.execute(
+            association_table.update()
+            .where(
+                association_table.c.memory_stone_id == stone_id,
+                related_column == related_id,
+            )
+            .values(relationship_type=relationship_type)
+        )
+
+    db.commit()
+
+    return serialize_memory_stone(stone, db)
 
 
 @app.get("/")
@@ -47,56 +216,40 @@ async def health() -> dict[str, str]:
 def create_memory_stone(
     stone_data: MemoryStoneCreate,
     db: DatabaseSession,
-) -> MemoryStone:
+) -> dict[str, Any]:
     stone = MemoryStone(**stone_data.model_dump())
 
     db.add(stone)
     db.commit()
+    db.refresh(stone)
 
-    created_stone = db.scalar(
-        select(MemoryStone)
-        .options(selectinload(MemoryStone.people))
-        .where(MemoryStone.id == stone.id)
-    )
-
-    if created_stone is None:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Memory Stone could not be retrieved after creation",
-        )
-
-    return created_stone
+    return serialize_memory_stone(stone, db)
 
 
 @app.get("/stones", response_model=list[MemoryStoneRead])
-def list_memory_stones(db: DatabaseSession) -> list[MemoryStone]:
-    statement = (
-        select(MemoryStone)
-        .options(selectinload(MemoryStone.people))
-        .order_by(MemoryStone.created_at.desc())
+def list_memory_stones(
+    db: DatabaseSession,
+) -> list[dict[str, Any]]:
+    statement = select(MemoryStone).order_by(
+        MemoryStone.created_at.desc()
     )
 
-    return list(db.scalars(statement).all())
+    stones = db.scalars(statement).all()
+
+    return [
+        serialize_memory_stone(stone, db)
+        for stone in stones
+    ]
 
 
 @app.get("/stones/{stone_id}", response_model=MemoryStoneRead)
 def get_memory_stone(
     stone_id: uuid.UUID,
     db: DatabaseSession,
-) -> MemoryStone:
-    stone = db.scalar(
-        select(MemoryStone)
-        .options(selectinload(MemoryStone.people))
-        .where(MemoryStone.id == stone_id)
-    )
+) -> dict[str, Any]:
+    stone = get_memory_stone_or_404(stone_id, db)
 
-    if stone is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Memory Stone not found",
-        )
-
-    return stone
+    return serialize_memory_stone(stone, db)
 
 
 @app.post(
@@ -125,6 +278,59 @@ def list_people(db: DatabaseSession) -> list[Person]:
 
 
 @app.post(
+    "/places",
+    response_model=PlaceRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_place(
+    place_data: PlaceCreate,
+    db: DatabaseSession,
+) -> Place:
+    place = Place(**place_data.model_dump())
+
+    db.add(place)
+    db.commit()
+    db.refresh(place)
+
+    return place
+
+
+@app.get("/places", response_model=list[PlaceRead])
+def list_places(db: DatabaseSession) -> list[Place]:
+    statement = select(Place).order_by(Place.display_name)
+
+    return list(db.scalars(statement).all())
+
+
+@app.post(
+    "/events",
+    response_model=EventRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_event(
+    event_data: EventCreate,
+    db: DatabaseSession,
+) -> Event:
+    event = Event(**event_data.model_dump())
+
+    db.add(event)
+    db.commit()
+    db.refresh(event)
+
+    return event
+
+
+@app.get("/events", response_model=list[EventRead])
+def list_events(db: DatabaseSession) -> list[Event]:
+    statement = select(Event).order_by(
+        Event.started_at.desc().nullslast(),
+        Event.display_name,
+    )
+
+    return list(db.scalars(statement).all())
+
+
+@app.post(
     "/stones/{stone_id}/people",
     response_model=MemoryStoneRead,
 )
@@ -132,50 +338,56 @@ def link_person_to_memory_stone(
     stone_id: uuid.UUID,
     link_data: MemoryStonePersonLinkCreate,
     db: DatabaseSession,
-) -> MemoryStone:
-    stone = db.get(MemoryStone, stone_id)
-
-    if stone is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Memory Stone not found",
-        )
-
-    person = db.get(Person, link_data.person_id)
-
-    if person is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Person not found",
-        )
-
-    existing_link = db.execute(
-        select(memory_stone_people).where(
-            memory_stone_people.c.memory_stone_id == stone_id,
-            memory_stone_people.c.person_id == link_data.person_id,
-        )
-    ).first()
-
-    if existing_link is None:
-        db.execute(
-            memory_stone_people.insert().values(
-                memory_stone_id=stone_id,
-                person_id=link_data.person_id,
-                relationship_type=link_data.relationship_type,
-            )
-        )
-        db.commit()
-
-    linked_stone = db.scalar(
-        select(MemoryStone)
-        .options(selectinload(MemoryStone.people))
-        .where(MemoryStone.id == stone_id)
+) -> dict[str, Any]:
+    return create_relationship(
+        stone_id=stone_id,
+        related_id=link_data.person_id,
+        related_model=Person,
+        association_table=memory_stone_people,
+        related_column_name="person_id",
+        relationship_type=link_data.relationship_type,
+        missing_detail="Person not found",
+        db=db,
     )
 
-    if linked_stone is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Memory Stone not found",
-        )
 
-    return linked_stone
+@app.post(
+    "/stones/{stone_id}/places",
+    response_model=MemoryStoneRead,
+)
+def link_place_to_memory_stone(
+    stone_id: uuid.UUID,
+    link_data: MemoryStonePlaceLinkCreate,
+    db: DatabaseSession,
+) -> dict[str, Any]:
+    return create_relationship(
+        stone_id=stone_id,
+        related_id=link_data.place_id,
+        related_model=Place,
+        association_table=memory_stone_places,
+        related_column_name="place_id",
+        relationship_type=link_data.relationship_type,
+        missing_detail="Place not found",
+        db=db,
+    )
+
+
+@app.post(
+    "/stones/{stone_id}/events",
+    response_model=MemoryStoneRead,
+)
+def link_event_to_memory_stone(
+    stone_id: uuid.UUID,
+    link_data: MemoryStoneEventLinkCreate,
+    db: DatabaseSession,
+) -> dict[str, Any]:
+    return create_relationship(
+        stone_id=stone_id,
+        related_id=link_data.event_id,
+        related_model=Event,
+        association_table=memory_stone_events,
+        related_column_name="event_id",
+        relationship_type=link_data.relationship_type,
+        missing_detail="Event not found",
+        db=db,
+    )
