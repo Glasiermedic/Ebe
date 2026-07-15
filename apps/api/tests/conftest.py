@@ -48,8 +48,18 @@ def prepare_test_database() -> Generator[None, None, None]:
 def clear_test_database() -> Generator[None, None, None]:
     with test_engine.begin() as connection:
         connection.execute(
-            text("TRUNCATE TABLE memory_stones RESTART IDENTITY CASCADE")
-        )
+    text(
+        "TRUNCATE TABLE "
+        "memory_stone_events, "
+        "memory_stone_places, "
+        "memory_stone_people, "
+        "memory_stones, "
+        "events, "
+        "places, "
+        "people "
+        "RESTART IDENTITY CASCADE"
+    )
+)
 
     yield
 

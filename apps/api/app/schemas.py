@@ -205,3 +205,73 @@ class EmbeddingBatchRead(BaseModel):
     embedded: int
     skipped_current: int
     stone_ids: list[uuid.UUID]
+
+class ExtractedPerson(BaseModel):
+    display_name: str = Field(min_length=1, max_length=200)
+    description: str | None = None
+    relationship_type: str = Field(
+        default="mentioned",
+        min_length=1,
+        max_length=50,
+    )
+
+
+class ExtractedPlace(BaseModel):
+    display_name: str = Field(min_length=1, max_length=200)
+    description: str | None = None
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+    relationship_type: str = Field(
+        default="location",
+        min_length=1,
+        max_length=50,
+    )
+
+
+class ExtractedEvent(BaseModel):
+    display_name: str = Field(min_length=1, max_length=200)
+    description: str | None = None
+    started_at: datetime | None = None
+    ended_at: datetime | None = None
+    relationship_type: str = Field(
+        default="related",
+        min_length=1,
+        max_length=50,
+    )
+
+
+class ExtractedMemory(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    content: str = Field(min_length=1)
+    stone_type: str = Field(
+        default="memory",
+        min_length=1,
+        max_length=50,
+    )
+    source_type: str = Field(
+        default="user_entry",
+        min_length=1,
+        max_length=50,
+    )
+    source_reference: str | None = None
+    remembered_at: date | None = None
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    is_inferred: bool = False
+    people: list[ExtractedPerson] = Field(default_factory=list)
+    places: list[ExtractedPlace] = Field(default_factory=list)
+    events: list[ExtractedEvent] = Field(default_factory=list)
+
+
+class RememberCreate(BaseModel):
+    text: str = Field(min_length=1, max_length=10000)
+
+
+class RememberRead(BaseModel):
+    stone: MemoryStoneRead
+    created_people: int
+    reused_people: int
+    created_places: int
+    reused_places: int
+    created_events: int
+    reused_events: int
+    embedding_status: str
