@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC, datetime
 from typing import Annotated, Any, TypeVar
 
 from fastapi import Depends, FastAPI, HTTPException, status
@@ -27,6 +28,14 @@ from app.schemas import (
     PersonRead,
     PlaceCreate,
     PlaceRead,
+    MemoryStoneEmbeddingRead,
+    SemanticSearchCreate,
+    SemanticSearchResultRead,
+)
+from app.services.embeddings import (
+    EmbeddingProvider,
+    build_memory_stone_embedding_text,
+    get_embedding_provider,
 )
 
 
@@ -38,7 +47,10 @@ app = FastAPI(
 
 DatabaseSession = Annotated[Session, Depends(get_db)]
 RelatedModel = TypeVar("RelatedModel", Person, Place, Event)
-
+EmbeddingService = Annotated[
+    EmbeddingProvider,
+    Depends(get_embedding_provider),
+]
 
 def get_memory_stone_or_404(
     stone_id: uuid.UUID,
@@ -391,3 +403,77 @@ def link_event_to_memory_stone(
         missing_detail="Event not found",
         db=db,
     )
+@app.post(
+    "/stones/{stone_id}/embed",
+    response_model=MemoryStoneEmbeddingRead,
+)
+def embed_memory_stone(
+    stone_id: uuid.UUID,
+    db: DatabaseSession,
+    embedding_provider: EmbeddingService,
+) -> dict[str, Any]:
+    stone = get_memory_stone_or_404(stone_id, db)
+
+    embedding_text = build_memory_stone_embedding_text(stone)
+    embedding = embedding_provider.embed(embedding_text)
+
+    if len(embedding) != 1536:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Embedding provider returned an unexpected vector dimension",
+        )
+
+    stone.embedding = embedding
+    stone.embedding_model = embedding_provider.model_name
+    stone.embedded_at = datetime.now(UTC)
+
+    db.commit()
+    db.refresh(stone)
+
+    return {
+        "id": stone.id,
+        "embedding_model": stone.embedding_model,
+        "embedded_at": stone.embedded_at,
+    }
+
+
+@app.post(
+    "/search/semantic",
+    response_model=list[SemanticSearchResultRead],
+)
+def semantic_search(
+    search_data: SemanticSearchCreate,
+    db: DatabaseSession,
+    embedding_provider: EmbeddingService,
+) -> list[dict[str, Any]]:
+    query_embedding = embedding_provider.embed(search_data.query)
+
+    if len(query_embedding) != 1536:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Embedding provider returned an unexpected vector dimension",
+        )
+
+    distance = MemoryStone.embedding.cosine_distance(
+        query_embedding
+    ).label("distance")
+
+    statement = (
+        select(MemoryStone, distance)
+        .where(MemoryStone.embedding.is_not(None))
+        .order_by(distance)
+        .limit(search_data.limit)
+    )
+
+    rows = db.execute(statement).all()
+
+    return [
+        {
+            "score": max(
+                0.0,
+                min(1.0, 1.0 - float(cosine_distance)),
+            ),
+            "stone": serialize_memory_stone(stone, db),
+        }
+        for stone, cosine_distance in rows
+    ]

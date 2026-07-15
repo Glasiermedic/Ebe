@@ -1,4 +1,5 @@
 import uuid
+from pgvector.sqlalchemy import VECTOR
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -261,6 +262,20 @@ class MemoryStone(Base):
         nullable=False,
         default=False,
         server_default=text("false"),
+    )
+    embedding: Mapped[list[float] | None] = mapped_column(
+        VECTOR(1536),
+        nullable=True,
+    )
+
+    embedding_model: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    embedded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
     )
 
     created_at: Mapped[datetime] = mapped_column(

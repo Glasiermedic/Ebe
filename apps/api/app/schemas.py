@@ -150,3 +150,17 @@ class MemoryStoneEventLinkCreate(BaseModel):
         min_length=1,
         max_length=50,
     )
+class MemoryStoneEmbeddingRead(BaseModel):
+    id: uuid.UUID
+    embedding_model: str
+    embedded_at: datetime
+
+
+class SemanticSearchCreate(BaseModel):
+    query: str = Field(min_length=1, max_length=2000)
+    limit: int = Field(default=5, ge=1, le=20)
+
+
+class SemanticSearchResultRead(BaseModel):
+    score: float
+    stone: MemoryStoneRead

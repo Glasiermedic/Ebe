@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     database_url: str
     test_database_url: str | None = None
 
+    openai_api_key: str | None = None
+    embedding_model: str = "text-embedding-3-small"
+    embedding_dimensions: int = 1536
+
     model_config = SettingsConfigDict(
         env_file=PROJECT_ROOT / ".env",
         env_file_encoding="utf-8",
