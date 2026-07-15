@@ -154,6 +154,7 @@ class MemoryStoneEmbeddingRead(BaseModel):
     id: uuid.UUID
     embedding_model: str
     embedded_at: datetime
+    status: str
 
 
 class SemanticSearchCreate(BaseModel):
@@ -164,3 +165,43 @@ class SemanticSearchCreate(BaseModel):
 class SemanticSearchResultRead(BaseModel):
     score: float
     stone: MemoryStoneRead
+class MemoryStoneUpdate(BaseModel):
+    title: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=200,
+    )
+    content: str | None = Field(
+        default=None,
+        min_length=1,
+    )
+    stone_type: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=50,
+    )
+    source_type: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=50,
+    )
+    source_reference: str | None = None
+    remembered_at: date | None = None
+    confidence: Decimal | None = Field(
+        default=None,
+        ge=Decimal("0.000"),
+        le=Decimal("1.000"),
+        max_digits=4,
+        decimal_places=3,
+    )
+    is_inferred: bool | None = None
+
+class EmbeddingBatchCreate(BaseModel):
+    limit: int = Field(default=25, ge=1, le=100)
+
+
+class EmbeddingBatchRead(BaseModel):
+    scanned: int
+    embedded: int
+    skipped_current: int
+    stone_ids: list[uuid.UUID]

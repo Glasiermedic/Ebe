@@ -1,3 +1,4 @@
+import hashlib
 from typing import Protocol
 
 from openai import OpenAI
@@ -74,6 +75,29 @@ def build_memory_stone_embedding_text(
         )
 
     return "\n".join(parts)
+
+
+def calculate_embedding_source_hash(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def embedding_is_current(
+    stone: MemoryStone,
+    *,
+    provider_model_name: str,
+) -> bool:
+    if stone.embedding is None:
+        return False
+
+    if stone.embedding_model != provider_model_name:
+        return False
+
+    embedding_text = build_memory_stone_embedding_text(stone)
+    current_hash = calculate_embedding_source_hash(
+        embedding_text
+    )
+
+    return stone.embedding_source_hash == current_hash
 
 
 def get_embedding_provider() -> EmbeddingProvider:

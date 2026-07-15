@@ -17,24 +17,29 @@ from app.models import (
     memory_stone_places,
 )
 from app.schemas import (
+    EmbeddingBatchCreate,
+    EmbeddingBatchRead,
     EventCreate,
     EventRead,
     MemoryStoneCreate,
+    MemoryStoneEmbeddingRead,
     MemoryStoneEventLinkCreate,
     MemoryStonePersonLinkCreate,
     MemoryStonePlaceLinkCreate,
     MemoryStoneRead,
+    MemoryStoneUpdate,
     PersonCreate,
     PersonRead,
     PlaceCreate,
     PlaceRead,
-    MemoryStoneEmbeddingRead,
     SemanticSearchCreate,
     SemanticSearchResultRead,
 )
 from app.services.embeddings import (
     EmbeddingProvider,
     build_memory_stone_embedding_text,
+    calculate_embedding_source_hash,
+    embedding_is_current,
     get_embedding_provider,
 )
 
@@ -205,6 +210,39 @@ def create_relationship(
 
     return serialize_memory_stone(stone, db)
 
+def generate_memory_stone_embedding(
+    *,
+    stone: MemoryStone,
+    embedding_provider: EmbeddingProvider,
+) -> str:
+    if embedding_is_current(
+        stone,
+        provider_model_name=embedding_provider.model_name,
+    ):
+        return "current"
+
+    embedding_text = build_memory_stone_embedding_text(
+        stone
+    )
+    embedding = embedding_provider.embed(embedding_text)
+
+    if len(embedding) != 1536:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=(
+                "Embedding provider returned an unexpected "
+                "vector dimension"
+            ),
+        )
+
+    stone.embedding = embedding
+    stone.embedding_model = embedding_provider.model_name
+    stone.embedding_source_hash = (
+        calculate_embedding_source_hash(embedding_text)
+    )
+    stone.embedded_at = datetime.now(UTC)
+
+    return "generated"
 
 @app.get("/")
 async def root() -> dict[str, str]:
@@ -263,6 +301,49 @@ def get_memory_stone(
 
     return serialize_memory_stone(stone, db)
 
+@app.patch(
+    "/stones/{stone_id}",
+    response_model=MemoryStoneRead,
+)
+def update_memory_stone(
+    stone_id: uuid.UUID,
+    stone_data: MemoryStoneUpdate,
+    db: DatabaseSession,
+) -> dict[str, Any]:
+    stone = get_memory_stone_or_404(stone_id, db)
+
+    update_values = stone_data.model_dump(
+        exclude_unset=True
+    )
+
+    semantic_fields = {
+        "title",
+        "content",
+        "stone_type",
+        "source_type",
+        "source_reference",
+        "remembered_at",
+    }
+
+    semantic_content_changed = bool(
+        semantic_fields.intersection(
+            stone_data.model_fields_set
+        )
+    )
+
+    for field_name, value in update_values.items():
+        setattr(stone, field_name, value)
+
+    if semantic_content_changed:
+        stone.embedding = None
+        stone.embedding_model = None
+        stone.embedding_source_hash = None
+        stone.embedded_at = None
+
+    db.commit()
+    db.refresh(stone)
+
+    return serialize_memory_stone(stone, db)
 
 @app.post(
     "/people",
@@ -414,26 +495,32 @@ def embed_memory_stone(
 ) -> dict[str, Any]:
     stone = get_memory_stone_or_404(stone_id, db)
 
-    embedding_text = build_memory_stone_embedding_text(stone)
-    embedding = embedding_provider.embed(embedding_text)
+    embedding_status = generate_memory_stone_embedding(
+        stone=stone,
+        embedding_provider=embedding_provider,
+    )
 
-    if len(embedding) != 1536:
+    if embedding_status == "generated":
+        db.commit()
+        db.refresh(stone)
+
+    if stone.embedding_model is None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Embedding provider returned an unexpected vector dimension",
+            detail="Embedding model metadata is missing",
         )
 
-    stone.embedding = embedding
-    stone.embedding_model = embedding_provider.model_name
-    stone.embedded_at = datetime.now(UTC)
-
-    db.commit()
-    db.refresh(stone)
+    if stone.embedded_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Embedding timestamp is missing",
+        )
 
     return {
         "id": stone.id,
         "embedding_model": stone.embedding_model,
         "embedded_at": stone.embedded_at,
+        "status": embedding_status,
     }
 
 
@@ -477,3 +564,43 @@ def semantic_search(
         }
         for stone, cosine_distance in rows
     ]
+@app.post(
+    "/stones/embed-pending",
+    response_model=EmbeddingBatchRead,
+)
+def embed_pending_memory_stones(
+    batch_data: EmbeddingBatchCreate,
+    db: DatabaseSession,
+    embedding_provider: EmbeddingService,
+) -> dict[str, Any]:
+    statement = (
+        select(MemoryStone)
+        .order_by(MemoryStone.created_at)
+        .limit(batch_data.limit)
+    )
+
+    stones = list(db.scalars(statement).all())
+
+    embedded_ids: list[uuid.UUID] = []
+    skipped_current = 0
+
+    for stone in stones:
+        embedding_status = generate_memory_stone_embedding(
+            stone=stone,
+            embedding_provider=embedding_provider,
+        )
+
+        if embedding_status == "current":
+            skipped_current += 1
+        else:
+            embedded_ids.append(stone.id)
+
+    if embedded_ids:
+        db.commit()
+
+    return {
+        "scanned": len(stones),
+        "embedded": len(embedded_ids),
+        "skipped_current": skipped_current,
+        "stone_ids": embedded_ids,
+    }
