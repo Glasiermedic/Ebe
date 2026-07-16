@@ -26,5 +26,5 @@ def review_memory(
     return [
         result
         for result in results
-        if result["score"] >= REVIEW_THRESHOLD
+        if result["semantic_score"] >= REVIEW_THRESHOLD
     ]

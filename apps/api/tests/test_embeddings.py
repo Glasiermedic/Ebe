@@ -174,11 +174,19 @@ def test_semantic_search(client: TestClient) -> None:
 
     assert response.status_code == 200
 
-    results = response.json()
+    body = response.json()
 
-    assert len(results) == 2
-    assert results[0]["stone"]["id"] == family_id
-    assert results[0]["score"] > results[1]["score"]
+    assert len(body) == 2
+
+    assert "score" in body[0]
+    assert "semantic_score" in body[0]
+    assert "importance" in body[0]
+
+    assert 0.0 <= body[0]["score"] <= 1.0
+    assert 0.0 <= body[0]["semantic_score"] <= 1.0
+
+    assert body[0]["stone"]["id"] == family_id
+    assert body[0]["score"] > body[1]["score"]
 
 
 def test_batch_embeds_pending_stones(

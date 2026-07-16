@@ -9,22 +9,24 @@ def test_review_returns_candidate(
     monkeypatch,
 ) -> None:
     candidate = {
-        "score": 0.97,
-        "stone": {
-            "id": "00000000-0000-0000-0000-000000000001",
-            "title": "First Date",
-        },
-    }
+    "score": 0.94,
+    "semantic_score": 0.97,
+    "importance": "0.800",
+    "stone": {
+        "id": "00000000-0000-0000-0000-000000000001",
+        "title": "First Date",
+    },
+}
 
     search_mock = Mock(
         return_value=[
             candidate,
             {
-                "score": 0.80,
+                "score": 0.85,
+                "semantic_score": 0.80,
+                "importance": "1.000",
                 "stone": {
-                    "id": (
-                        "00000000-0000-0000-0000-000000000002"
-                    ),
+                    "id": "00000000-0000-0000-0000-000000000002",
                     "title": "Unrelated Memory",
                 },
             },
@@ -62,14 +64,14 @@ def test_review_returns_empty(
     search_mock = Mock(
         return_value=[
             {
-                "score": 0.89,
+                "score": 0.90,
+                "semantic_score": 0.89,
+                "importance": "0.950",
                 "stone": {
-                    "id": (
-                        "00000000-0000-0000-0000-000000000001"
-                    ),
-                    "title": "Different Memory",
+                        "id": "00000000-0000-0000-0000-000000000001",
+                        "title": "Different Memory",
                 },
-            }
+}
         ]
     )
 

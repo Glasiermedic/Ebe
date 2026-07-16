@@ -186,7 +186,10 @@ class SemanticSearchCreate(BaseModel):
 
 class SemanticSearchResultRead(BaseModel):
     score: float
+    semantic_score: float
+    importance: Decimal
     stone: MemoryStoneRead
+
 class MemoryStoneUpdate(BaseModel):
     title: str | None = Field(
         default=None,

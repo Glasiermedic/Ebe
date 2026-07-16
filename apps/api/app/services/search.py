@@ -9,6 +9,23 @@ from app.serializers.memory_stones import serialize_memory_stone
 from app.services.embeddings import EmbeddingProvider
 
 
+SEMANTIC_WEIGHT = 0.85
+IMPORTANCE_WEIGHT = 0.15
+
+
+def calculate_retrieval_score(
+    *,
+    semantic_score: float,
+    importance: float,
+) -> float:
+    score = (
+        semantic_score * SEMANTIC_WEIGHT
+        + importance * IMPORTANCE_WEIGHT
+    )
+
+    return max(0.0, min(1.0, score))
+
+
 def semantic_search_memory_stones(
     *,
     query: str,
@@ -31,22 +48,47 @@ def semantic_search_memory_stones(
         query_embedding
     ).label("distance")
 
+    candidate_limit = max(limit * 5, limit)
+
     statement = (
         select(MemoryStone, distance)
         .where(MemoryStone.embedding.is_not(None))
         .order_by(distance)
-        .limit(limit)
+        .limit(candidate_limit)
     )
 
     rows = db.execute(statement).all()
 
-    return [
-        {
-            "score": max(
-                0.0,
-                min(1.0, 1.0 - float(cosine_distance)),
-            ),
-            "stone": serialize_memory_stone(stone, db),
-        }
-        for stone, cosine_distance in rows
-    ]
+    results: list[dict[str, Any]] = []
+
+    for stone, cosine_distance in rows:
+        semantic_score = max(
+            0.0,
+            min(1.0, 1.0 - float(cosine_distance)),
+        )
+
+        importance = float(stone.importance)
+
+        final_score = calculate_retrieval_score(
+            semantic_score=semantic_score,
+            importance=importance,
+        )
+
+        results.append(
+            {
+                "score": final_score,
+                "semantic_score": semantic_score,
+                "importance": stone.importance,
+                "stone": serialize_memory_stone(stone, db),
+            }
+        )
+
+    results.sort(
+        key=lambda result: (
+            result["score"],
+            result["semantic_score"],
+        ),
+        reverse=True,
+    )
+
+    return results[:limit]
