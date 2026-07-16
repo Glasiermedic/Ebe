@@ -69,6 +69,7 @@ def create_memory_from_text(
     db: Session,
     extraction_provider: MemoryExtractionProvider,
     embedding_provider: EmbeddingProvider,
+    skip_semantic_review: bool = False,
 ) -> dict[str, Any]:
     source_text_hash = calculate_memory_input_hash(text)
 
@@ -101,25 +102,26 @@ def create_memory_from_text(
             "candidate_matches": [],
         }
 
-    candidate_matches = review_memory(
-        text=text,
-        db=db,
-        embedding_provider=embedding_provider,
-    )
+    if not skip_semantic_review:
+        candidate_matches = review_memory(
+            text=text,
+            db=db,
+            embedding_provider=embedding_provider,
+        )
 
-    if candidate_matches:
-        return {
-            "stone": None,
-            "created_people": 0,
-            "reused_people": 0,
-            "created_places": 0,
-            "reused_places": 0,
-            "created_events": 0,
-            "reused_events": 0,
-            "embedding_status": None,
-            "memory_status": "review",
-            "candidate_matches": candidate_matches,
-        }
+        if candidate_matches:
+            return {
+                "stone": None,
+                "created_people": 0,
+                "reused_people": 0,
+                "created_places": 0,
+                "reused_places": 0,
+                "created_events": 0,
+                "reused_events": 0,
+                "embedding_status": None,
+                "memory_status": "review",
+                "candidate_matches": candidate_matches,
+            }
 
     extracted = extraction_provider.extract(text)
 

@@ -306,3 +306,22 @@ class RememberRead(BaseModel):
 class CandidateMemoryMatch(BaseModel):
     score: float
     stone: MemoryStoneRead
+class RememberResolutionCreate(BaseModel):
+    text: str = Field(min_length=1, max_length=10000)
+
+    action: Literal[
+        "use_existing",
+        "create_anyway",
+    ]
+
+    existing_stone_id: uuid.UUID | None = None
+
+
+class RememberResolutionRead(BaseModel):
+    resolution_status: Literal[
+        "used_existing",
+        "created",
+        "duplicate",
+    ]
+
+    result: RememberRead
