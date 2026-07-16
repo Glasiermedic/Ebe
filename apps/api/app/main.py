@@ -1,13 +1,15 @@
 import uuid
 from typing import Annotated, Any, TypeVar
 
-from app.routers.people import router as people_router
+
 
 from app.serializers.memory_stones import serialize_memory_stone
 
+from app.routers.people import router as people_router
+
 from app.routers.remember import router as remember_router
 
-
+from app.routers.places import router as places_router
 
 from app.services.memory_stones import (
     generate_memory_stone_embedding,
@@ -40,8 +42,6 @@ from app.schemas import (
     MemoryStonePlaceLinkCreate,
     MemoryStoneRead,
     MemoryStoneUpdate,
-    PlaceCreate,
-    PlaceRead,
     SemanticSearchCreate,
     SemanticSearchResultRead,
 )
@@ -62,6 +62,7 @@ app = FastAPI(
 
 app.include_router(people_router)
 app.include_router(remember_router)
+app.include_router(places_router)
 
 DatabaseSession = Annotated[Session, Depends(get_db)]
 RelatedModel = TypeVar("RelatedModel", Person, Place, Event)
@@ -230,31 +231,6 @@ def update_memory_stone(
     db.refresh(stone)
 
     return serialize_memory_stone(stone, db)
-
-
-@app.post(
-    "/places",
-    response_model=PlaceRead,
-    status_code=status.HTTP_201_CREATED,
-)
-def create_place(
-    place_data: PlaceCreate,
-    db: DatabaseSession,
-) -> Place:
-    place = Place(**place_data.model_dump())
-
-    db.add(place)
-    db.commit()
-    db.refresh(place)
-
-    return place
-
-
-@app.get("/places", response_model=list[PlaceRead])
-def list_places(db: DatabaseSession) -> list[Place]:
-    statement = select(Place).order_by(Place.display_name)
-
-    return list(db.scalars(statement).all())
 
 
 @app.post(
