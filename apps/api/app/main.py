@@ -2,10 +2,6 @@ import uuid
 from typing import Annotated, Any, TypeVar
 
 from app.routers.people import router as people_router
-from app.services.identity import (
-    find_person_by_name,
-    normalize_entity_name,
-)
 
 from app.serializers.memory_stones import serialize_memory_stone
 
@@ -37,7 +33,6 @@ from app.schemas import (
     EmbeddingBatchRead,
     EventCreate,
     EventRead,
-    ExtractedMemory,
     MemoryStoneCreate,
     MemoryStoneEmbeddingRead,
     MemoryStoneEventLinkCreate,
