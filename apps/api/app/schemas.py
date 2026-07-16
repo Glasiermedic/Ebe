@@ -1,6 +1,7 @@
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -277,13 +278,31 @@ class ExtractedMemory(BaseModel):
 class RememberCreate(BaseModel):
     text: str = Field(min_length=1, max_length=10000)
 
+class CandidateMemoryMatch(BaseModel):
+    score: float
+    stone: MemoryStoneRead
 
 class RememberRead(BaseModel):
+    stone: MemoryStoneRead | None = None
+
+    created_people: int = 0
+    reused_people: int = 0
+    created_places: int = 0
+    reused_places: int = 0
+    created_events: int = 0
+    reused_events: int = 0
+
+    embedding_status: str | None = None
+
+    memory_status: Literal[
+        "created",
+        "duplicate",
+        "review",
+    ]
+
+    candidate_matches: list[CandidateMemoryMatch] = Field(
+        default_factory=list
+    )
+class CandidateMemoryMatch(BaseModel):
+    score: float
     stone: MemoryStoneRead
-    created_people: int
-    reused_people: int
-    created_places: int
-    reused_places: int
-    created_events: int
-    reused_events: int
-    embedding_status: str

@@ -14,6 +14,7 @@ from app.services.extraction import get_memory_extraction_provider
 
 from app.services.embeddings import get_embedding_provider
 
+from app.services import memory_creation
 
 class FakeEmbeddingProvider:
     model_name = "fake-test-embedding"
@@ -114,26 +115,49 @@ def test_remember_creates_connected_memory(
 
 def test_remember_reuses_existing_entities(
     client: TestClient,
+    monkeypatch,
 ) -> None:
-    payload = {
+    monkeypatch.setattr(
+        memory_creation,
+        "review_memory",
+        lambda **kwargs: [],
+    )
+
+    first_payload = {
         "text": (
             "Met Laura at the Cheesecake Factory "
             "on our first date."
         )
     }
 
-    first_response = client.post("/remember", json=payload)
-    second_response = client.post("/remember", json=payload)
+    second_payload = {
+        "text": (
+            "Laura and I stayed at the Cheesecake Factory "
+            "talking late into the evening."
+        )
+    }
+
+    first_response = client.post(
+        "/remember",
+        json=first_payload,
+    )
+
+    second_response = client.post(
+        "/remember",
+        json=second_payload,
+    )
 
     assert first_response.status_code == 201
     assert second_response.status_code == 201
 
     second_body = second_response.json()
 
+    assert second_body["memory_status"] == "created"
     assert second_body["created_people"] == 0
     assert second_body["reused_people"] == 1
     assert second_body["created_places"] == 0
     assert second_body["reused_places"] == 1
+
 
 def test_remember_resolves_person_alias(
     client: TestClient,

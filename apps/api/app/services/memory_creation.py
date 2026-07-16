@@ -1,5 +1,6 @@
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import (
@@ -15,6 +16,8 @@ from app.serializers.memory_stones import serialize_memory_stone
 from app.services.embeddings import EmbeddingProvider
 from app.services.extraction import MemoryExtractionProvider
 from app.services.identity import find_person_by_name
+from app.services.memory_duplicates import calculate_memory_input_hash
+from app.services.memory_review import review_memory
 from app.services.memory_stones import generate_memory_stone_embedding
 
 
@@ -28,7 +31,7 @@ def find_place_by_name(
 ) -> Place | None:
     normalized_name = normalize_entity_name(display_name)
 
-    places = db.query(Place).all()
+    places = db.scalars(select(Place)).all()
 
     return next(
         (
@@ -47,7 +50,7 @@ def find_event_by_name(
 ) -> Event | None:
     normalized_name = normalize_entity_name(display_name)
 
-    events = db.query(Event).all()
+    events = db.scalars(select(Event)).all()
 
     return next(
         (
@@ -67,6 +70,57 @@ def create_memory_from_text(
     extraction_provider: MemoryExtractionProvider,
     embedding_provider: EmbeddingProvider,
 ) -> dict[str, Any]:
+    source_text_hash = calculate_memory_input_hash(text)
+
+    existing_stone = db.scalar(
+        select(MemoryStone).where(
+            MemoryStone.source_text_hash == source_text_hash
+        )
+    )
+
+    if existing_stone is not None:
+        embedding_status = generate_memory_stone_embedding(
+            stone=existing_stone,
+            embedding_provider=embedding_provider,
+        )
+
+        if embedding_status == "generated":
+            db.commit()
+            db.refresh(existing_stone)
+
+        return {
+            "stone": serialize_memory_stone(existing_stone, db),
+            "created_people": 0,
+            "reused_people": 0,
+            "created_places": 0,
+            "reused_places": 0,
+            "created_events": 0,
+            "reused_events": 0,
+            "embedding_status": embedding_status,
+            "memory_status": "duplicate",
+            "candidate_matches": [],
+        }
+
+    candidate_matches = review_memory(
+        text=text,
+        db=db,
+        embedding_provider=embedding_provider,
+    )
+
+    if candidate_matches:
+        return {
+            "stone": None,
+            "created_people": 0,
+            "reused_people": 0,
+            "created_places": 0,
+            "reused_places": 0,
+            "created_events": 0,
+            "reused_events": 0,
+            "embedding_status": None,
+            "memory_status": "review",
+            "candidate_matches": candidate_matches,
+        }
+
     extracted = extraction_provider.extract(text)
 
     stone = MemoryStone(
@@ -75,6 +129,7 @@ def create_memory_from_text(
         stone_type=extracted.stone_type,
         source_type=extracted.source_type,
         source_reference=extracted.source_reference,
+        source_text_hash=source_text_hash,
         remembered_at=extracted.remembered_at,
         confidence=extracted.confidence,
         is_inferred=extracted.is_inferred,
@@ -192,4 +247,6 @@ def create_memory_from_text(
         "created_events": created_events,
         "reused_events": reused_events,
         "embedding_status": embedding_status,
+        "memory_status": "created",
+        "candidate_matches": [],
     }

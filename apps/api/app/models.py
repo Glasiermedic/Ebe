@@ -250,6 +250,12 @@ class MemoryStone(Base):
         Text,
         nullable=True,
     )
+    source_text_hash: Mapped[str | None] = mapped_column(
+    String(64),
+    nullable=True,
+    unique=True,
+    index=True,
+    )
 
     remembered_at: Mapped[date | None] = mapped_column(
         Date,
