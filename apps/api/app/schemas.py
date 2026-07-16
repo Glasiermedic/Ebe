@@ -106,6 +106,14 @@ class MemoryStoneCreate(BaseModel):
     source_reference: str | None = None
     remembered_at: date | None = None
 
+    importance: Decimal = Field(
+    default=Decimal("0.500"),
+    ge=Decimal("0.000"),
+    le=Decimal("1.000"),
+    max_digits=4,
+    decimal_places=3,
+    )
+
     confidence: Decimal = Field(
         default=Decimal("1.000"),
         ge=Decimal("0.000"),
@@ -136,6 +144,7 @@ class MemoryStoneRead(BaseModel):
 
     created_at: datetime
     updated_at: datetime
+    importance: Decimal
 
 
 class MemoryStonePersonLinkCreate(BaseModel):
@@ -198,6 +207,15 @@ class MemoryStoneUpdate(BaseModel):
         min_length=1,
         max_length=50,
     )
+
+    importance: Decimal | None = Field(
+        default=None,
+        ge=Decimal("0.000"),
+        le=Decimal("1.000"),
+        max_digits=4,
+        decimal_places=3,
+    )
+
     source_reference: str | None = None
     remembered_at: date | None = None
     confidence: Decimal | None = Field(
@@ -266,6 +284,13 @@ class ExtractedMemory(BaseModel):
         min_length=1,
         max_length=50,
     )
+
+    importance: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+    )
+
     source_reference: str | None = None
     remembered_at: date | None = None
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)

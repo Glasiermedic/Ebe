@@ -135,6 +135,7 @@ def create_memory_from_text(
         remembered_at=extracted.remembered_at,
         confidence=extracted.confidence,
         is_inferred=extracted.is_inferred,
+        importance=extracted.importance,
     )
 
     db.add(stone)

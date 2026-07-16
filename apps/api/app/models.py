@@ -3,6 +3,8 @@ from pgvector.sqlalchemy import VECTOR
 from datetime import date, datetime
 from decimal import Decimal
 
+from decimal import Decimal
+
 from sqlalchemy import (
     Boolean,
     Column,
@@ -15,7 +17,9 @@ from sqlalchemy import (
     Text,
     func,
     text,
-    UniqueConstraint
+    UniqueConstraint,
+    Numeric,
+    text,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -244,6 +248,13 @@ class MemoryStone(Base):
         nullable=False,
         default="user_entry",
         server_default=text("'user_entry'"),
+    )
+
+    importance: Mapped[Decimal] = mapped_column(
+    Numeric(4, 3),
+    nullable=False,
+    default=Decimal("0.500"),
+    server_default=text("0.500"),
     )
 
     source_reference: Mapped[str | None] = mapped_column(

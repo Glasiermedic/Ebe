@@ -72,6 +72,7 @@ def serialize_memory_stone(
         "source_reference": stone.source_reference,
         "remembered_at": stone.remembered_at,
         "confidence": stone.confidence,
+        "importance": stone.importance,
         "is_inferred": stone.is_inferred,
         "people": [
             {

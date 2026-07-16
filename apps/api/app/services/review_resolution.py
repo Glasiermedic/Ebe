@@ -87,6 +87,6 @@ def resolve_memory_review(
         }
 
     raise HTTPException(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status.HTTP_422_UNPROCESSABLE_CONTENT,
         detail="Unsupported review resolution action",
     )

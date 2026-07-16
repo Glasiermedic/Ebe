@@ -27,6 +27,14 @@ Rules:
   subject, companion, witness, location, destination, occurred_during.
 - source_type should normally be user_entry.
 - source_reference should normally be Direct recollection entered by user.
+- Assign importance from 0.0 to 1.0 based on long-term personal significance.
+- Routine or disposable details should generally score 0.0 to 0.3.
+- Meaningful but ordinary experiences should generally score 0.3 to 0.7.
+- Major milestones, defining relationships, serious loss, calling, faith,
+  health turning points, or core identity experiences should generally score
+  0.7 to 1.0.
+- Do not score a memory highly merely because it contains emotional language.
+- Use 0.5 when significance cannot be determined reliably.
 """
 
 
