@@ -9,6 +9,10 @@ from app.services.identity import (
 
 from app.serializers.memory_stones import serialize_memory_stone
 
+from app.routers.remember import router as remember_router
+
+
+
 from app.services.memory_stones import (
     generate_memory_stone_embedding,
     get_memory_stone_or_404,
@@ -43,8 +47,6 @@ from app.schemas import (
     MemoryStoneUpdate,
     PlaceCreate,
     PlaceRead,
-    RememberCreate,
-    RememberRead,
     SemanticSearchCreate,
     SemanticSearchResultRead,
 )
@@ -64,6 +66,7 @@ app = FastAPI(
 )
 
 app.include_router(people_router)
+app.include_router(remember_router)
 
 DatabaseSession = Annotated[Session, Depends(get_db)]
 RelatedModel = TypeVar("RelatedModel", Person, Place, Event)
@@ -75,9 +78,6 @@ ExtractionService = Annotated[
     MemoryExtractionProvider,
     Depends(get_memory_extraction_provider),
 ]
-
-
-
 
 
 
@@ -134,43 +134,6 @@ def create_relationship(
 
     return serialize_memory_stone(stone, db)
 
-
-def find_place_by_name(
-    display_name: str,
-    db: Session,
-) -> Place | None:
-    normalized_name = normalize_entity_name(display_name)
-
-    places = db.scalars(select(Place)).all()
-
-    return next(
-        (
-            place
-            for place in places
-            if normalize_entity_name(place.display_name)
-            == normalized_name
-        ),
-        None,
-    )
-
-
-def find_event_by_name(
-    display_name: str,
-    db: Session,
-) -> Event | None:
-    normalized_name = normalize_entity_name(display_name)
-
-    events = db.scalars(select(Event)).all()
-
-    return next(
-        (
-            event
-            for event in events
-            if normalize_entity_name(event.display_name)
-            == normalized_name
-        ),
-        None,
-    )
 
 @app.get("/")
 async def root() -> dict[str, str]:
@@ -509,142 +472,3 @@ def embed_pending_memory_stones(
         "stone_ids": embedded_ids,
     }
 
-@app.post(
-    "/remember",
-    response_model=RememberRead,
-    status_code=status.HTTP_201_CREATED,
-)
-def remember(
-    remember_data: RememberCreate,
-    db: DatabaseSession,
-    extraction_provider: ExtractionService,
-    embedding_provider: EmbeddingService,
-) -> dict[str, Any]:
-    extracted: ExtractedMemory = extraction_provider.extract(
-        remember_data.text
-    )
-
-    stone = MemoryStone(
-        title=extracted.title,
-        content=extracted.content,
-        stone_type=extracted.stone_type,
-        source_type=extracted.source_type,
-        source_reference=extracted.source_reference,
-        remembered_at=extracted.remembered_at,
-        confidence=extracted.confidence,
-        is_inferred=extracted.is_inferred,
-    )
-
-    db.add(stone)
-    db.flush()
-
-    created_people = 0
-    reused_people = 0
-    created_places = 0
-    reused_places = 0
-    created_events = 0
-    reused_events = 0
-
-    for extracted_person in extracted.people:
-        person = find_person_by_name(
-            extracted_person.display_name,
-            db,
-        )
-
-        if person is None:
-            person = Person(
-                display_name=extracted_person.display_name,
-                description=extracted_person.description,
-            )
-            db.add(person)
-            db.flush()
-            created_people += 1
-        else:
-            reused_people += 1
-
-        db.execute(
-            memory_stone_people.insert().values(
-                memory_stone_id=stone.id,
-                person_id=person.id,
-                relationship_type=(
-                    extracted_person.relationship_type
-                ),
-            )
-        )
-
-    for extracted_place in extracted.places:
-        place = find_place_by_name(
-            extracted_place.display_name,
-            db,
-        )
-
-        if place is None:
-            place = Place(
-                display_name=extracted_place.display_name,
-                description=extracted_place.description,
-                latitude=extracted_place.latitude,
-                longitude=extracted_place.longitude,
-            )
-            db.add(place)
-            db.flush()
-            created_places += 1
-        else:
-            reused_places += 1
-
-        db.execute(
-            memory_stone_places.insert().values(
-                memory_stone_id=stone.id,
-                place_id=place.id,
-                relationship_type=(
-                    extracted_place.relationship_type
-                ),
-            )
-        )
-
-    for extracted_event in extracted.events:
-        event = find_event_by_name(
-            extracted_event.display_name,
-            db,
-        )
-
-        if event is None:
-            event = Event(
-                display_name=extracted_event.display_name,
-                description=extracted_event.description,
-                started_at=extracted_event.started_at,
-                ended_at=extracted_event.ended_at,
-            )
-            db.add(event)
-            db.flush()
-            created_events += 1
-        else:
-            reused_events += 1
-
-        db.execute(
-            memory_stone_events.insert().values(
-                memory_stone_id=stone.id,
-                event_id=event.id,
-                relationship_type=(
-                    extracted_event.relationship_type
-                ),
-            )
-        )
-
-    embedding_status = generate_memory_stone_embedding(
-        stone=stone,
-        embedding_provider=embedding_provider,
-    )
-
-    db.commit()
-    db.refresh(stone)
-
-    return {
-        "stone": serialize_memory_stone(stone, db),
-        "created_people": created_people,
-        "reused_people": reused_people,
-        "created_places": created_places,
-        "reused_places": reused_places,
-        "created_events": created_events,
-        "reused_events": reused_events,
-        "embedding_status": embedding_status,
-    }
