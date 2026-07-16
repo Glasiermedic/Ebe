@@ -1,11 +1,17 @@
 import uuid
-from datetime import UTC, datetime
 from typing import Annotated, Any, TypeVar
 
 from app.routers.people import router as people_router
 from app.services.identity import (
     find_person_by_name,
     normalize_entity_name,
+)
+
+from app.serializers.memory_stones import serialize_memory_stone
+
+from app.services.memory_stones import (
+    generate_memory_stone_embedding,
+    get_memory_stone_or_404,
 )
 
 from fastapi import Depends, FastAPI, HTTPException, status
@@ -44,9 +50,6 @@ from app.schemas import (
 )
 from app.services.embeddings import (
     EmbeddingProvider,
-    build_memory_stone_embedding_text,
-    calculate_embedding_source_hash,
-    embedding_is_current,
     get_embedding_provider,
 )
 from app.services.extraction import (
@@ -72,19 +75,7 @@ ExtractionService = Annotated[
     MemoryExtractionProvider,
     Depends(get_memory_extraction_provider),
 ]
-def get_memory_stone_or_404(
-    stone_id: uuid.UUID,
-    db: Session,
-) -> MemoryStone:
-    stone = db.get(MemoryStone, stone_id)
 
-    if stone is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Memory Stone not found",
-        )
-
-    return stone
 
 
 
@@ -142,41 +133,6 @@ def create_relationship(
     db.commit()
 
     return serialize_memory_stone(stone, db)
-
-def generate_memory_stone_embedding(
-    *,
-    stone: MemoryStone,
-    embedding_provider: EmbeddingProvider,
-) -> str:
-    if embedding_is_current(
-        stone,
-        provider_model_name=embedding_provider.model_name,
-    ):
-        return "current"
-
-    embedding_text = build_memory_stone_embedding_text(
-        stone
-    )
-    embedding = embedding_provider.embed(embedding_text)
-
-    if len(embedding) != 1536:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=(
-                "Embedding provider returned an unexpected "
-                "vector dimension"
-            ),
-        )
-
-    stone.embedding = embedding
-    stone.embedding_model = embedding_provider.model_name
-    stone.embedding_source_hash = (
-        calculate_embedding_source_hash(embedding_text)
-    )
-    stone.embedded_at = datetime.now(UTC)
-
-    return "generated"
-
 
 
 def find_place_by_name(
