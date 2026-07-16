@@ -18,6 +18,18 @@ class PersonRead(BaseModel):
     description: str | None
     created_at: datetime
 
+class PersonAliasCreate(BaseModel):
+    alias: str = Field(min_length=1, max_length=200)
+
+
+class PersonAliasRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    person_id: uuid.UUID
+    alias: str
+    normalized_alias: str
+    created_at: datetime
 
 class PlaceCreate(BaseModel):
     display_name: str = Field(min_length=1, max_length=200)

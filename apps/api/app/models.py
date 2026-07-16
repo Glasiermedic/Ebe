@@ -15,6 +15,7 @@ from sqlalchemy import (
     Text,
     func,
     text,
+    UniqueConstraint
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -122,6 +123,11 @@ class Person(Base):
     memory_stones: Mapped[list["MemoryStone"]] = relationship(
         secondary=memory_stone_people,
         back_populates="people",
+    )
+    aliases: Mapped[list["PersonAlias"]] = relationship(
+        back_populates="person",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
 
@@ -308,4 +314,46 @@ class MemoryStone(Base):
     events: Mapped[list[Event]] = relationship(
         secondary=memory_stone_events,
         back_populates="memory_stones",
+    )
+class PersonAlias(Base):
+    __tablename__ = "person_aliases"
+    __table_args__ = (
+        UniqueConstraint(
+            "normalized_alias",
+            name="uq_person_aliases_normalized_alias",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+
+    person_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("people.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    alias: Mapped[str] = mapped_column(
+        String(200),
+        nullable=False,
+    )
+
+    normalized_alias: Mapped[str] = mapped_column(
+        String(200),
+        nullable=False,
+        index=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    person: Mapped["Person"] = relationship(
+        back_populates="aliases",
     )

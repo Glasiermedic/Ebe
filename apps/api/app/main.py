@@ -5,12 +5,14 @@ from typing import Annotated, Any, TypeVar
 from fastapi import Depends, FastAPI, HTTPException, status
 from sqlalchemy import Table, select
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
 from app.database import get_db
 from app.models import (
     Event,
     MemoryStone,
     Person,
+    PersonAlias,
     Place,
     memory_stone_events,
     memory_stone_people,
@@ -29,6 +31,8 @@ from app.schemas import (
     MemoryStonePlaceLinkCreate,
     MemoryStoneRead,
     MemoryStoneUpdate,
+    PersonAliasCreate,
+    PersonAliasRead,
     PersonCreate,
     PersonRead,
     PlaceCreate,
@@ -265,7 +269,7 @@ def find_person_by_name(
 
     people = db.scalars(select(Person)).all()
 
-    return next(
+    exact_person = next(
         (
             person
             for person in people
@@ -274,6 +278,20 @@ def find_person_by_name(
         ),
         None,
     )
+
+    if exact_person is not None:
+        return exact_person
+
+    alias = db.scalar(
+        select(PersonAlias).where(
+            PersonAlias.normalized_alias == normalized_name
+        )
+    )
+
+    if alias is None:
+        return None
+
+    return alias.person
 
 
 def find_place_by_name(
@@ -430,7 +448,93 @@ def create_person(
     db.refresh(person)
 
     return person
+@app.post(
+    "/people/{person_id}/aliases",
+    response_model=PersonAliasRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_person_alias(
+    person_id: uuid.UUID,
+    alias_data: PersonAliasCreate,
+    db: DatabaseSession,
+) -> PersonAlias:
+    person = db.get(Person, person_id)
 
+    if person is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Person not found",
+        )
+
+    normalized_alias = normalize_entity_name(alias_data.alias)
+
+    canonical_match = next(
+        (
+            existing_person
+            for existing_person in db.scalars(select(Person)).all()
+            if normalize_entity_name(existing_person.display_name)
+            == normalized_alias
+        ),
+        None,
+    )
+
+    if canonical_match is not None:
+        if canonical_match.id == person.id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Alias matches this person's canonical name",
+            )
+
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Alias matches another person's canonical name",
+        )
+
+    alias = PersonAlias(
+        person_id=person.id,
+        alias=alias_data.alias.strip(),
+        normalized_alias=normalized_alias,
+    )
+
+    db.add(alias)
+
+    try:
+        db.commit()
+    except IntegrityError as error:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Alias is already assigned to a person",
+        ) from error
+
+    db.refresh(alias)
+
+    return alias
+
+
+@app.get(
+    "/people/{person_id}/aliases",
+    response_model=list[PersonAliasRead],
+)
+def list_person_aliases(
+    person_id: uuid.UUID,
+    db: DatabaseSession,
+) -> list[PersonAlias]:
+    person = db.get(Person, person_id)
+
+    if person is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Person not found",
+        )
+
+    statement = (
+        select(PersonAlias)
+        .where(PersonAlias.person_id == person_id)
+        .order_by(PersonAlias.alias)
+    )
+
+    return list(db.scalars(statement).all())
 
 @app.get("/people", response_model=list[PersonRead])
 def list_people(db: DatabaseSession) -> list[Person]:

@@ -23,7 +23,10 @@ class FakeEmbeddingProvider:
         vector[0] = 1.0
         return vector
 
+
+
 class FakeMemoryExtractionProvider:
+    person_name = "Laura Rolfson"
     def extract(self, text: str) -> ExtractedMemory:
         return ExtractedMemory(
             title="First Date",
@@ -31,7 +34,7 @@ class FakeMemoryExtractionProvider:
             remembered_at=date(2010, 6, 12),
             people=[
                 ExtractedPerson(
-                    display_name="Laura Rolfson",
+                    display_name=self.person_name,
                     relationship_type="subject",
                 )
             ],
@@ -109,7 +112,6 @@ def test_remember_creates_connected_memory(
         == "location"
     )
 
-
 def test_remember_reuses_existing_entities(
     client: TestClient,
 ) -> None:
@@ -133,3 +135,51 @@ def test_remember_reuses_existing_entities(
     assert second_body["created_places"] == 0
     assert second_body["reused_places"] == 1
 
+def test_remember_resolves_person_alias(
+    client: TestClient,
+) -> None:
+    person_response = client.post(
+        "/people",
+        json={
+            "display_name": "Laura Rolfson",
+            "description": "Wesley's wife",
+        },
+    )
+
+    assert person_response.status_code == 201
+
+    person_id = person_response.json()["id"]
+
+    alias_response = client.post(
+        f"/people/{person_id}/aliases",
+        json={"alias": "Laura"},
+    )
+
+    assert alias_response.status_code == 201
+
+    FakeMemoryExtractionProvider.person_name = "Laura"
+
+    try:
+        response = client.post(
+            "/remember",
+            json={
+                "text": (
+                    "Met Laura at the Cheesecake Factory "
+                    "on our first date."
+                )
+            },
+        )
+    finally:
+        FakeMemoryExtractionProvider.person_name = "Laura Rolfson"
+
+    assert response.status_code == 201
+
+    body = response.json()
+
+    assert body["created_people"] == 0
+    assert body["reused_people"] == 1
+
+    connected_person = body["stone"]["people"][0]["person"]
+
+    assert connected_person["id"] == person_id
+    assert connected_person["display_name"] == "Laura Rolfson"
