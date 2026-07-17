@@ -1,4 +1,5 @@
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
@@ -11,9 +12,10 @@ from app.schemas import (
     PersonAliasRead,
     PersonCreate,
     PersonRead,
+    MemoryStoneRead,
 )
 from app.services.identity import normalize_entity_name
-
+from app.services.graph_recall import get_person_memories
 
 router = APIRouter(
     prefix="/people",
@@ -139,3 +141,16 @@ def list_person_aliases(
     )
 
     return list(db.scalars(statement).all())
+
+@router.get(
+    "/{person_id}/memories",
+    response_model=list[MemoryStoneRead],
+)
+def list_person_memories(
+    person_id: uuid.UUID,
+    db: DatabaseSession,
+) -> list[dict[str, Any]]:
+    return get_person_memories(
+        person_id=person_id,
+        db=db,
+    )
