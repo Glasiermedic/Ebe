@@ -1,9 +1,13 @@
+import uuid
+from typing import Any
+
 from fastapi import APIRouter, status
 from sqlalchemy import select
 
 from app.dependencies import DatabaseSession
 from app.models import Event
-from app.schemas import EventCreate, EventRead
+from app.schemas import EventCreate, EventRead, MemoryStoneRead
+from app.services.graph_recall import get_event_memories
 
 
 router = APIRouter(
@@ -43,3 +47,17 @@ def list_events(
     )
 
     return list(db.scalars(statement).all())
+
+
+@router.get(
+    "/{event_id}/memories",
+    response_model=list[MemoryStoneRead],
+)
+def list_event_memories(
+    event_id: uuid.UUID,
+    db: DatabaseSession,
+) -> list[dict[str, Any]]:
+    return get_event_memories(
+        event_id=event_id,
+        db=db,
+    )

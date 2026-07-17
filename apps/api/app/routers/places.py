@@ -1,6 +1,9 @@
 from fastapi import APIRouter, status
 from sqlalchemy import select
-
+from typing import Any
+import uuid
+from app.schemas import MemoryStoneRead
+from app.services.graph_recall import get_place_memories
 from app.dependencies import DatabaseSession
 from app.models import Place
 from app.schemas import PlaceCreate, PlaceRead
@@ -29,6 +32,18 @@ def create_place(
 
     return place
 
+@router.get(
+    "/{place_id}/memories",
+    response_model=list[MemoryStoneRead],
+)
+def list_place_memories(
+    place_id: uuid.UUID,
+    db: DatabaseSession,
+) -> list[dict[str, Any]]:
+    return get_place_memories(
+        place_id=place_id,
+        db=db,
+    )
 
 @router.get(
     "",

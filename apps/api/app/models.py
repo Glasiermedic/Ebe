@@ -3,8 +3,6 @@ from pgvector.sqlalchemy import VECTOR
 from datetime import date, datetime
 from decimal import Decimal
 
-from decimal import Decimal
-
 from sqlalchemy import (
     Boolean,
     Column,
@@ -18,8 +16,6 @@ from sqlalchemy import (
     func,
     text,
     UniqueConstraint,
-    Numeric,
-    text,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
