@@ -146,6 +146,14 @@ class MemoryStoneRead(BaseModel):
     updated_at: datetime
     importance: Decimal
 
+class PersonContextRead(BaseModel):
+    person: PersonRead
+    aliases: list[PersonAliasRead]
+    memories: list[MemoryStoneRead]
+
+    related_people: list[PersonRead]
+    related_places: list[PlaceRead]
+    related_events: list[EventRead]
 
 class MemoryStonePersonLinkCreate(BaseModel):
     person_id: uuid.UUID

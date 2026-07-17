@@ -13,9 +13,12 @@ from app.schemas import (
     PersonCreate,
     PersonRead,
     MemoryStoneRead,
+    PersonContextRead,
 )
 from app.services.identity import normalize_entity_name
+
 from app.services.graph_recall import (
+    get_person_context,
     get_person_memories,
     get_person_timeline,
 )
@@ -166,6 +169,18 @@ def list_person_timeline(
     db: DatabaseSession,
 ) -> list[dict[str, Any]]:
     return get_person_timeline(
+        person_id=person_id,
+        db=db,
+    )
+@router.get(
+    "/{person_id}/context",
+    response_model=PersonContextRead,
+)
+def get_context(
+    person_id: uuid.UUID,
+    db: DatabaseSession,
+) -> dict[str, Any]:
+    return get_person_context(
         person_id=person_id,
         db=db,
     )

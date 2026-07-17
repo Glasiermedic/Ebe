@@ -141,3 +141,85 @@ def get_person_timeline(
         serialize_memory_stone(stone, db)
         for stone in stones
     ]
+
+def _get_related_people(
+    memories: list[dict[str, Any]],
+    root_person_id: uuid.UUID,
+) -> list[Person]:
+    people: dict[uuid.UUID, Person] = {}
+
+    for memory in memories:
+        for connection in memory["people"]:
+            person = connection["person"]
+
+            if person.id == root_person_id:
+                continue
+
+            people[person.id] = person
+
+    return sorted(
+        people.values(),
+        key=lambda person: person.display_name.lower(),
+    )
+
+
+def _get_related_places(
+    memories: list[dict[str, Any]],
+) -> list[Place]:
+    places: dict[uuid.UUID, Place] = {}
+
+    for memory in memories:
+        for connection in memory["places"]:
+            place = connection["place"]
+            places[place.id] = place
+
+    return sorted(
+        places.values(),
+        key=lambda place: place.display_name.lower(),
+    )
+
+
+def _get_related_events(
+    memories: list[dict[str, Any]],
+) -> list[Event]:
+    events: dict[uuid.UUID, Event] = {}
+
+    for memory in memories:
+        for connection in memory["events"]:
+            event = connection["event"]
+            events[event.id] = event
+
+    return sorted(
+        events.values(),
+        key=lambda event: event.display_name.lower(),
+    )
+
+def get_person_context(
+    *,
+    person_id: uuid.UUID,
+    db: Session,
+) -> dict[str, Any]:
+    person = db.get(Person, person_id)
+
+    if person is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Person not found",
+        )
+
+    memories = get_person_memories(
+        person_id=person_id,
+        db=db,
+    )
+
+    return {
+        "person": person,
+        "aliases": person.aliases,
+        "memories": memories,
+        "related_people": _get_related_people(
+            memories,
+            person_id,
+        ),
+        "related_places": _get_related_places(memories),
+        "related_events": _get_related_events(memories),
+    }
