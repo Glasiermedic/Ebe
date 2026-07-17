@@ -186,6 +186,15 @@ class MemoryStoneEmbeddingRead(BaseModel):
     embedded_at: datetime
     status: str
 
+class QueryRequest(BaseModel):
+    query: str
+
+
+class QueryResultRead(BaseModel):
+    query: str
+    entity_type: str
+    entity: PersonRead | PlaceRead | EventRead
+    memories: list[MemoryStoneRead]
 
 class SemanticSearchCreate(BaseModel):
     query: str = Field(min_length=1, max_length=2000)
