@@ -19,6 +19,8 @@ from app.routers.search import router as search_router
 
 from app.routers.stones import router as stones_router
 
+from app.routers.query import router as query_router
+
 
 from fastapi import Depends, FastAPI
 from sqlalchemy.orm import Session
@@ -52,7 +54,7 @@ app.include_router(relationships_router)
 app.include_router(embeddings_router)
 app.include_router(search_router)
 app.include_router(stones_router)
-
+app.include_router(query_router)
 
 DatabaseSession = Annotated[Session, Depends(get_db)]
 RelatedModel = TypeVar("RelatedModel", Person, Place, Event)
