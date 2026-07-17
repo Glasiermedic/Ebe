@@ -7,10 +7,9 @@ from app.services.graph_recall import (
     get_person_memories,
     get_place_memories,
 )
-from app.services.query.entity_resolver import (
-    resolve_single_entity,
-)
+from app.services.query.entity_resolver import resolve_single_entity
 from app.services.query.normalizer import normalize_query
+from app.services.query.planner import create_query_plan
 
 
 def _retrieve_entity_memories(
@@ -49,18 +48,35 @@ def answer_query(
     if not normalized_query.normalized:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=("Query must contain a person, place, or event name"),
+            detail="Query must contain a person, place, or event name",
+        )
+
+    plan = create_query_plan(normalized_query.normalized)
+
+    if plan.intent == "multi_entity":
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail={
+                "message": "Multi-entity queries are not implemented yet",
+                "candidate_phrases": list(plan.candidate_phrases),
+            },
+        )
+
+    if plan.intent != "single_entity":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Unable to determine query intent",
         )
 
     resolved_entity = resolve_single_entity(
-        name=normalized_query.normalized,
+        name=plan.candidate_phrases[0],
         db=db,
     )
 
     if resolved_entity is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=("No matching person, place, or event found"),
+            detail="No matching person, place, or event found",
         )
 
     memories = _retrieve_entity_memories(

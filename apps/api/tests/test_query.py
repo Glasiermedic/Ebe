@@ -80,3 +80,24 @@ def test_query_returns_404_for_unknown_entity(
     )
 
     assert response.status_code == 404
+
+
+def test_query_rejects_multi_entity_requests(
+    client,
+) -> None:
+    response = client.post(
+        "/query",
+        json={
+            "query": "Tell me about Laura and Robert",
+        },
+    )
+
+    assert response.status_code == 501
+
+    body = response.json()
+
+    assert body["detail"]["message"] == ("Multi-entity queries are not implemented yet")
+    assert body["detail"]["candidate_phrases"] == [
+        "Laura",
+        "Robert",
+    ]
