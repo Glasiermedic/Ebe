@@ -19,6 +19,7 @@ class PersonRead(BaseModel):
     description: str | None
     created_at: datetime
 
+
 class PersonAliasCreate(BaseModel):
     alias: str = Field(min_length=1, max_length=200)
 
@@ -31,6 +32,7 @@ class PersonAliasRead(BaseModel):
     alias: str
     normalized_alias: str
     created_at: datetime
+
 
 class PlaceCreate(BaseModel):
     display_name: str = Field(min_length=1, max_length=200)
@@ -78,6 +80,7 @@ class EventRead(BaseModel):
     ended_at: datetime | None
     created_at: datetime
 
+
 class PersonConnectionRead(BaseModel):
     relationship_type: str
     person: PersonRead
@@ -91,6 +94,7 @@ class PlaceConnectionRead(BaseModel):
 class EventConnectionRead(BaseModel):
     relationship_type: str
     event: EventRead
+
 
 class MemoryStoneCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
@@ -107,11 +111,11 @@ class MemoryStoneCreate(BaseModel):
     remembered_at: date | None = None
 
     importance: Decimal = Field(
-    default=Decimal("0.500"),
-    ge=Decimal("0.000"),
-    le=Decimal("1.000"),
-    max_digits=4,
-    decimal_places=3,
+        default=Decimal("0.500"),
+        ge=Decimal("0.000"),
+        le=Decimal("1.000"),
+        max_digits=4,
+        decimal_places=3,
     )
 
     confidence: Decimal = Field(
@@ -146,6 +150,7 @@ class MemoryStoneRead(BaseModel):
     updated_at: datetime
     importance: Decimal
 
+
 class PersonContextRead(BaseModel):
     person: PersonRead
     aliases: list[PersonAliasRead]
@@ -154,6 +159,7 @@ class PersonContextRead(BaseModel):
     related_people: list[PersonRead]
     related_places: list[PlaceRead]
     related_events: list[EventRead]
+
 
 class MemoryStonePersonLinkCreate(BaseModel):
     person_id: uuid.UUID
@@ -180,11 +186,14 @@ class MemoryStoneEventLinkCreate(BaseModel):
         min_length=1,
         max_length=50,
     )
+
+
 class MemoryStoneEmbeddingRead(BaseModel):
     id: uuid.UUID
     embedding_model: str
     embedded_at: datetime
     status: str
+
 
 class QueryRequest(BaseModel):
     query: str
@@ -192,9 +201,13 @@ class QueryRequest(BaseModel):
 
 class QueryResultRead(BaseModel):
     query: str
+    normalized_query: str
     entity_type: str
+    matched_by: str
+    matched_value: str
     entity: PersonRead | PlaceRead | EventRead
     memories: list[MemoryStoneRead]
+
 
 class SemanticSearchCreate(BaseModel):
     query: str = Field(min_length=1, max_length=2000)
@@ -206,6 +219,7 @@ class SemanticSearchResultRead(BaseModel):
     semantic_score: float
     importance: Decimal
     stone: MemoryStoneRead
+
 
 class MemoryStoneUpdate(BaseModel):
     title: str | None = Field(
@@ -247,6 +261,7 @@ class MemoryStoneUpdate(BaseModel):
     )
     is_inferred: bool | None = None
 
+
 class EmbeddingBatchCreate(BaseModel):
     limit: int = Field(default=25, ge=1, le=100)
 
@@ -256,6 +271,7 @@ class EmbeddingBatchRead(BaseModel):
     embedded: int
     skipped_current: int
     stone_ids: list[uuid.UUID]
+
 
 class ExtractedPerson(BaseModel):
     display_name: str = Field(min_length=1, max_length=200)
@@ -323,9 +339,11 @@ class ExtractedMemory(BaseModel):
 class RememberCreate(BaseModel):
     text: str = Field(min_length=1, max_length=10000)
 
+
 class CandidateMemoryMatch(BaseModel):
     score: float
     stone: MemoryStoneRead
+
 
 class RememberRead(BaseModel):
     stone: MemoryStoneRead | None = None
@@ -345,12 +363,14 @@ class RememberRead(BaseModel):
         "review",
     ]
 
-    candidate_matches: list[CandidateMemoryMatch] = Field(
-        default_factory=list
-    )
+    candidate_matches: list[CandidateMemoryMatch] = Field(default_factory=list)
+
+
 class CandidateMemoryMatch(BaseModel):
     score: float
     stone: MemoryStoneRead
+
+
 class RememberResolutionCreate(BaseModel):
     text: str = Field(min_length=1, max_length=10000)
 

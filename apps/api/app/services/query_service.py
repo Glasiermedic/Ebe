@@ -1,7 +1,4 @@
-from typing import Any
-
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import Event, Person, Place
@@ -10,127 +7,74 @@ from app.services.graph_recall import (
     get_person_memories,
     get_place_memories,
 )
+from app.services.query.entity_resolver import (
+    resolve_single_entity,
+)
+from app.services.query.normalizer import normalize_query
 
 
-def _normalize_query(query: str) -> str:
-    normalized = query.strip()
-
-    prefixes = (
-        "tell me about ",
-        "what do you know about ",
-        "who is ",
-        "what is ",
-    )
-
-    lowered = normalized.lower()
-
-    for prefix in prefixes:
-        if lowered.startswith(prefix):
-            normalized = normalized[len(prefix):].strip()
-            break
-
-    return normalized.rstrip("?.!").strip()
-
-
-def _find_person(
+def _retrieve_entity_memories(
     *,
-    name: str,
+    entity_type: str,
+    entity: Person | Place | Event,
     db: Session,
-) -> Person | None:
-    statement = select(Person).where(
-        func.lower(Person.display_name) == name.lower()
-    )
+) -> list[dict]:
+    if entity_type == "person":
+        return get_person_memories(
+            person_id=entity.id,
+            db=db,
+        )
 
-    return db.scalar(statement)
+    if entity_type == "place":
+        return get_place_memories(
+            place_id=entity.id,
+            db=db,
+        )
 
+    if entity_type == "event":
+        return get_event_memories(
+            event_id=entity.id,
+            db=db,
+        )
 
-def _find_place(
-    *,
-    name: str,
-    db: Session,
-) -> Place | None:
-    statement = select(Place).where(
-        func.lower(Place.display_name) == name.lower()
-    )
-
-    return db.scalar(statement)
-
-
-def _find_event(
-    *,
-    name: str,
-    db: Session,
-) -> Event | None:
-    statement = select(Event).where(
-        func.lower(Event.display_name) == name.lower()
-    )
-
-    return db.scalar(statement)
+    raise ValueError(f"Unsupported entity type: {entity_type}")
 
 
 def answer_query(
-    *,
     query: str,
     db: Session,
-) -> dict[str, Any]:
-    entity_name = _normalize_query(query)
+) -> dict:
+    normalized_query = normalize_query(query)
 
-    if not entity_name:
+    if not normalized_query.normalized:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Query must identify a person, place, or event",
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=("Query must contain a person, place, or event name"),
         )
 
-    person = _find_person(
-        name=entity_name,
+    resolved_entity = resolve_single_entity(
+        name=normalized_query.normalized,
         db=db,
     )
 
-    if person is not None:
-        return {
-            "query": query,
-            "entity_type": "person",
-            "entity": person,
-            "memories": get_person_memories(
-                person_id=person.id,
-                db=db,
-            ),
-        }
+    if resolved_entity is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=("No matching person, place, or event found"),
+        )
 
-    place = _find_place(
-        name=entity_name,
+    memories = _retrieve_entity_memories(
+        entity_type=resolved_entity.entity_type,
+        entity=resolved_entity.entity,
         db=db,
     )
 
-    if place is not None:
-        return {
-            "query": query,
-            "entity_type": "place",
-            "entity": place,
-            "memories": get_place_memories(
-                place_id=place.id,
-                db=db,
-            ),
-        }
-
-    event = _find_event(
-        name=entity_name,
-        db=db,
-    )
-
-    if event is not None:
-        return {
-            "query": query,
-            "entity_type": "event",
-            "entity": event,
-            "memories": get_event_memories(
-                event_id=event.id,
-                db=db,
-            ),
-        }
-
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="No matching person, place, or event found",
-    )
-    
+    return {
+        "query": normalized_query.original,
+        "normalized_query": normalized_query.normalized,
+        "entity_type": resolved_entity.entity_type,
+        "matched_by": resolved_entity.matched_by,
+        "matched_value": resolved_entity.matched_value,
+        "entity": resolved_entity.entity,
+        "memories": memories,
+    }
