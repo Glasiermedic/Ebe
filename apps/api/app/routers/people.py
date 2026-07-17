@@ -15,7 +15,10 @@ from app.schemas import (
     MemoryStoneRead,
 )
 from app.services.identity import normalize_entity_name
-from app.services.graph_recall import get_person_memories
+from app.services.graph_recall import (
+    get_person_memories,
+    get_person_timeline,
+)
 
 router = APIRouter(
     prefix="/people",
@@ -151,6 +154,18 @@ def list_person_memories(
     db: DatabaseSession,
 ) -> list[dict[str, Any]]:
     return get_person_memories(
+        person_id=person_id,
+        db=db,
+    )
+@router.get(
+    "/{person_id}/timeline",
+    response_model=list[MemoryStoneRead],
+)
+def list_person_timeline(
+    person_id: uuid.UUID,
+    db: DatabaseSession,
+) -> list[dict[str, Any]]:
+    return get_person_timeline(
         person_id=person_id,
         db=db,
     )

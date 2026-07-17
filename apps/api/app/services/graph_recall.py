@@ -106,3 +106,38 @@ def get_event_memories(
         entity_name="Event",
         db=db,
     )
+def get_person_timeline(
+    *,
+    person_id: uuid.UUID,
+    db: Session,
+) -> list[dict[str, Any]]:
+    person = db.get(Person, person_id)
+
+    if person is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Person not found",
+        )
+
+    statement = (
+        select(MemoryStone)
+        .join(
+            memory_stone_people,
+            memory_stone_people.c.memory_stone_id
+            == MemoryStone.id,
+        )
+        .where(
+            memory_stone_people.c.person_id == person_id
+        )
+        .order_by(
+            MemoryStone.remembered_at.asc().nullslast(),
+            MemoryStone.created_at.asc(),
+        )
+    )
+
+    stones = db.scalars(statement).all()
+
+    return [
+        serialize_memory_stone(stone, db)
+        for stone in stones
+    ]
