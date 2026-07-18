@@ -134,3 +134,28 @@ def resolve_single_entity(
             return result
 
     return None
+    
+def resolve_entities(
+    names: tuple[str, ...],
+    db: Session,
+) -> tuple[ResolvedEntity, ...]:
+    resolved_entities: list[ResolvedEntity] = []
+
+    for name in names:
+        resolved_entity = resolve_single_entity(
+            name=name,
+            db=db,
+        )
+
+        if resolved_entity is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "message": "No matching person, place, or event found",
+                    "candidate_phrase": name,
+                },
+            )
+
+        resolved_entities.append(resolved_entity)
+
+    return tuple(resolved_entities)

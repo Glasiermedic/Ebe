@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import Literal
 
+from app.models import MemoryStone 
+
 from app.models import Event, Person, Place
 
 EntityType = Literal["person", "place", "event"]
@@ -32,3 +34,15 @@ class QueryPlan:
     intent: QueryIntent
     query_text: str
     candidate_phrases: tuple[str, ...]
+
+
+
+@dataclass(frozen=True)
+class RetrievalRequest:
+    plan: QueryPlan
+    resolved_entities: tuple[ResolvedEntity, ...]
+
+
+@dataclass(frozen=True)
+class RetrievalResult:
+    memory_stones: tuple[MemoryStone, ...]

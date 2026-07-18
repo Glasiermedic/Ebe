@@ -10,6 +10,8 @@ from app.services.graph_recall import (
 from app.services.query.entity_resolver import resolve_single_entity
 from app.services.query.normalizer import normalize_query
 from app.services.query.planner import create_query_plan
+#from app.services.query.models import RetrievalRequest
+#from app.services.query.retrieval import RetrievalService
 
 
 def _retrieve_entity_memories(
@@ -78,7 +80,7 @@ def answer_query(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No matching person, place, or event found",
         )
-
+        
     memories = _retrieve_entity_memories(
         entity_type=resolved_entity.entity_type,
         entity=resolved_entity.entity,
