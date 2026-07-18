@@ -17,20 +17,22 @@ class RetrievalService:
         if not request.resolved_entities:
             return RetrievalResult(memory_stones=())
 
-        if len(request.resolved_entities) > 1:
-            raise NotImplementedError(
-                "Multi-entity retrieval has not been implemented yet."
+        memory_stones_by_id: dict[object, MemoryStone] = {}
+
+        for resolved_entity in request.resolved_entities:
+            memory_stones = self._retrieve_single_entity(
+                resolved_entity=resolved_entity,
+                db=db,
             )
 
-        resolved_entity = request.resolved_entities[0]
-
-        memory_stones = self._retrieve_single_entity(
-            resolved_entity=resolved_entity,
-            db=db,
-        )
+            for memory_stone in memory_stones:
+                memory_stones_by_id.setdefault(
+                    memory_stone.id,
+                    memory_stone,
+                )
 
         return RetrievalResult(
-            memory_stones=tuple(memory_stones),
+            memory_stones=tuple(memory_stones_by_id.values()),
         )
 
     def _retrieve_single_entity(
@@ -65,6 +67,4 @@ class RetrievalService:
                 .all()
             )
 
-        raise ValueError(
-            f"Unsupported entity type: {resolved_entity.entity_type}"
-        )
+        raise ValueError(f"Unsupported entity type: {resolved_entity.entity_type}")
