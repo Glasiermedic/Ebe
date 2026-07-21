@@ -80,3 +80,14 @@ def client() -> Generator[TestClient, None, None]:
         yield test_client
 
     app.dependency_overrides.clear()
+
+
+
+@pytest.fixture
+def db_session() -> Generator[Session, None, None]:
+    session = TestingSessionLocal()
+
+    try:
+        yield session
+    finally:
+        session.close()

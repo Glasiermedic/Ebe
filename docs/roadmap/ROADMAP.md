@@ -15,8 +15,21 @@ Completed
 Rejected
 Superseded
 ```
+## Engineering Principles
 
-A suggestion from ChatGPT remains `Proposed` until Wesley approves it.
+The Ebe query engine is developed as a deterministic pipeline.
+
+Each stage has a single responsibility.
+
+Stages communicate through immutable request and result models.
+
+Every stage is independently unit tested before integration.
+
+Integration follows after the stage passes its own test suite.
+
+Public API behavior changes require explicit approval.
+
+## A suggestion from ChatGPT remains `Proposed` until Wesley approves it.
 
 ---
 
@@ -115,44 +128,55 @@ A repository snapshot script exists to reduce duplicate modules, stale assumptio
 
 # Stage B — Retrieval Pipeline
 
+### Stage B Design Principles
+
+The retrieval pipeline follows a single-responsibility architecture.
+
+Each stage owns exactly one concern.
+
+Query
+    ↓
+Normalize
+    ↓
+Plan
+    ↓
+Resolve
+    ↓
+Retrieve
+    ↓
+Serialize
+    ↓
+Response Builder
+
+Retrieval never returns JSON.
+
+Serialization never executes SQL.
+
+The response builder never performs retrieval.
+
 ## B1. Retrieval boundary
 
-**Decision:** EBE-005  
-**Status:** Proposed  
-**Priority:** Immediate after approval
+**Decision:** EBE-005
+**Status:** Completed
 
-### Goal
+### Completed
 
-Move entity-type retrieval branching out of the query orchestrator.
+- Introduced `RetrievalRequest`
+- Introduced `RetrievalResult`
+- Introduced `RetrievalService`
+- Retrieval returns domain (`MemoryStone`) objects.
+- Retrieval supports:
+  - single entity
+  - multi-entity union
+- Retrieval is independently unit tested.
 
-### Proposed files
+### Remaining
 
-```text
-apps/api/app/services/query/retrieval.py
-apps/api/app/services/query/models.py
-apps/api/tests/test_query_retrieval.py
-```
+The query orchestrator still uses `graph_recall.py` as the production serialization path until the serialization layer is introduced.
 
-### Proposed internal contract
+### Follow-up
 
-```python
-@dataclass(frozen=True)
-class RetrievalRequest:
-    plan: QueryPlan
-    resolved_entities: tuple[ResolvedEntity, ...]
-```
-
-A result model should carry at least:
-
-```text
-memories
-strategy
-exact_match
-fallback_level
-warnings
-```
-
-The exact object shape should be checked against current serializers before implementation.
+The retrieval layer intentionally returns ORM models rather than serialized API dictionaries.
 
 ### Acceptance criteria
 
@@ -164,11 +188,40 @@ The exact object shape should be checked against current serializers before impl
 - no public API change unless separately approved.
 
 ---
+## B2.1 Serialization Boundary
 
-## B2. Multi-entity resolution
+**Status:** Approved
+
+### Goal
+
+Separate retrieval from API serialization.
+
+### Responsibilities
+
+RetrievalService
+
+- returns ORM models only
+- performs no JSON serialization
+- performs no response shaping
+
+Serializer
+
+- converts MemoryStone ORM models into API objects
+- owns response serialization
+- reusable by REST, CLI, LLM, and export pipelines
+
+### Acceptance Criteria
+
+- retrieval returns ORM objects only
+- serializer owns MemoryStone serialization
+- graph_recall uses serializer
+- query_service no longer performs serialization
+
+---
+## B3. Multi-entity resolution
 
 **Status:** Planned  
-**Depends on:** B1
+**Depends on:** B2.1
 
 ### Goal
 
@@ -216,10 +269,10 @@ Preferred architecture: the planner or retrieval policy decides strictness based
 
 ---
 
-## B3. Retrieval plan generation
+## B4. Retrieval plan generation
 
 **Status:** Planned  
-**Depends on:** B2
+**Depends on:** B3
 
 ### Goal
 
@@ -256,10 +309,10 @@ Progressive fallback:
 
 ---
 
-## B4. Multi-entity graph execution
+## B5. Multi-entity graph execution
 
 **Status:** Planned  
-**Depends on:** B3
+**Depends on:** B4
 
 ### Goal
 
@@ -286,10 +339,10 @@ Execute graph intersections and pairwise fallbacks.
 
 ---
 
-## B5. Semantic fallback and graph-vector fusion
+## B6. Semantic fallback and graph-vector fusion
 
 **Status:** Planned  
-**Depends on:** B4
+**Depends on:** B5
 
 ### Goal
 
@@ -313,10 +366,10 @@ exact graph
 
 ---
 
-## B6. Response builder
+## B7. Response builder
 
 **Status:** Planned  
-**Depends on:** B1–B5 as needed
+**Depends on:** B1–B6 as needed
 
 ### Goal
 
@@ -564,16 +617,18 @@ Before multi-user or shared-family use:
 
 # Planned Near-Term Sequence
 
-1. Approve or reject EBE-005.
-2. Extract the retrieval boundary.
-3. Add multi-entity resolution.
-4. Generate retrieval plans.
-5. Execute exact graph intersections.
-6. Add progressive graph fallback.
-7. Add constrained semantic fallback.
-8. Add retrieval provenance to a stable response builder.
-9. Expand intent detection.
-10. Add temporal and relationship queries.
-11. Add ranking and evidence bundles.
-12. Add optional grounded synthesis.
-13. Add optional biblical enrichment.
+1. Complete serialization boundary
+2. Integrate RetrievalService into QueryService
+3. Retire graph_recall retrieval responsibilities
+4. Generate retrieval plans
+5. Execute graph intersections
+6. Progressive graph fallback
+7. Semantic fallback
+8. Response builder
+9. Expanded intents
+10. Temporal reasoning
+11. Relationship queries
+12. Ranking
+13. Evidence bundles
+14. Optional grounded synthesis
+15. Biblical enrichment

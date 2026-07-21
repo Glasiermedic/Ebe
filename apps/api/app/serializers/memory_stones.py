@@ -1,68 +1,47 @@
+import uuid
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from app.models import Event, MemoryStone, Person, Place
 
-from app.models import (
-    Event,
-    MemoryStone,
-    Person,
-    Place,
-    memory_stone_events,
-    memory_stone_people,
-    memory_stone_places,
+
+@dataclass(frozen=True)
+class PersonConnection:
+    relationship_type: str
+    person: Person
+
+
+@dataclass(frozen=True)
+class PlaceConnection:
+    relationship_type: str
+    place: Place
+
+
+@dataclass(frozen=True)
+class EventConnection:
+    relationship_type: str
+    event: Event
+
+
+@dataclass(frozen=True)
+class MemoryStoneConnections:
+    people: tuple[PersonConnection, ...]
+    places: tuple[PlaceConnection, ...]
+    events: tuple[EventConnection, ...]
+
+
+EMPTY_MEMORY_STONE_CONNECTIONS = MemoryStoneConnections(
+    people=(),
+    places=(),
+    events=(),
 )
 
 
 def serialize_memory_stone(
     stone: MemoryStone,
-    db: Session,
+    connections: MemoryStoneConnections,
 ) -> dict[str, Any]:
-    person_rows = db.execute(
-        select(
-            memory_stone_people.c.relationship_type,
-            Person,
-        )
-        .join(
-            Person,
-            Person.id == memory_stone_people.c.person_id,
-        )
-        .where(
-            memory_stone_people.c.memory_stone_id == stone.id,
-        )
-        .order_by(Person.display_name)
-    ).all()
-
-    place_rows = db.execute(
-        select(
-            memory_stone_places.c.relationship_type,
-            Place,
-        )
-        .join(
-            Place,
-            Place.id == memory_stone_places.c.place_id,
-        )
-        .where(
-            memory_stone_places.c.memory_stone_id == stone.id,
-        )
-        .order_by(Place.display_name)
-    ).all()
-
-    event_rows = db.execute(
-        select(
-            memory_stone_events.c.relationship_type,
-            Event,
-        )
-        .join(
-            Event,
-            Event.id == memory_stone_events.c.event_id,
-        )
-        .where(
-            memory_stone_events.c.memory_stone_id == stone.id,
-        )
-        .order_by(Event.started_at.desc().nullslast())
-    ).all()
-
     return {
         "id": stone.id,
         "title": stone.title,
@@ -76,25 +55,44 @@ def serialize_memory_stone(
         "is_inferred": stone.is_inferred,
         "people": [
             {
-                "relationship_type": relationship_type,
-                "person": person,
+                "relationship_type": connection.relationship_type,
+                "person": connection.person,
             }
-            for relationship_type, person in person_rows
+            for connection in connections.people
         ],
         "places": [
             {
-                "relationship_type": relationship_type,
-                "place": place,
+                "relationship_type": connection.relationship_type,
+                "place": connection.place,
             }
-            for relationship_type, place in place_rows
+            for connection in connections.places
         ],
         "events": [
             {
-                "relationship_type": relationship_type,
-                "event": event,
+                "relationship_type": connection.relationship_type,
+                "event": connection.event,
             }
-            for relationship_type, event in event_rows
+            for connection in connections.events
         ],
         "created_at": stone.created_at,
         "updated_at": stone.updated_at,
     }
+
+
+def serialize_memory_stones(
+    stones: Sequence[MemoryStone],
+    connections_by_stone_id: Mapping[
+        uuid.UUID,
+        MemoryStoneConnections,
+    ],
+) -> list[dict[str, Any]]:
+    return [
+        serialize_memory_stone(
+            stone,
+            connections_by_stone_id.get(
+                stone.id,
+                EMPTY_MEMORY_STONE_CONNECTIONS,
+            ),
+        )
+        for stone in stones
+    ]

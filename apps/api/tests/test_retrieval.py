@@ -30,6 +30,7 @@ def configure_memory_stone_query(
     query = db.query.return_value
     query.join.return_value = query
     query.filter.return_value = query
+    query.order_by.return_value = query
     query.all.return_value = memory_stones
 
     return query
@@ -184,6 +185,7 @@ def configure_memory_stone_queries(
         query = MagicMock()
         query.join.return_value = query
         query.filter.return_value = query
+        query.order_by.return_value = query
         query.all.return_value = memory_stones
         queries.append(query)
 

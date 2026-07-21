@@ -1,10 +1,10 @@
 # Ebe Current State
 
-**Updated:** 2026-07-17 11:01 America/Los_Angeles  
-**Project owner:** Wesley  
-**Technical planning partner:** ChatGPT  
-**Repository root:** `~/projects/ebe`  
-**API root:** `~/projects/ebe/apps/api`  
+**Updated:** 2026-07-19 America/Los_Angeles
+**Project owner:** Wesley
+**Technical planning partner:** ChatGPT
+**Repository root:** `~/projects/ebe`
+**API root:** `~/projects/ebe/apps/api`
 **Current build state reported by Wesley:** Green
 
 ---
@@ -67,6 +67,16 @@ PostgreSQL facts
 - person context
 - related people, places, and events
 
+### Retrieval foundation
+
+- immutable `RetrievalRequest` and `RetrievalResult` contracts
+- ordered multi-entity resolution through `resolve_entities()`
+- single-entity retrieval through `RetrievalService`
+- multi-entity union retrieval
+- deduplication by Memory Stone ID
+- deterministic first-seen ordering
+- 83 automated tests passing
+
 ### Natural-language query layer
 
 Supported examples:
@@ -96,6 +106,8 @@ Alias resolution works. Ambiguous aliases should return an explicit conflict rat
 
 ## Current Query Pipeline
 
+### Production API path
+
 ```text
 POST /query
     ↓
@@ -103,7 +115,7 @@ query router
     ↓
 answer_query()
     ↓
-normalize_query() -7.17.26 completed
+normalize_query()
     ↓
 create_query_plan()
     ↓
@@ -111,20 +123,32 @@ single_entity
     ↓
 resolve_single_entity()
     ↓
-entity-specific graph recall
+graph_recall.py
+    ↓
+serialize_memory_stone()
     ↓
 structured API response
 ```
 
-Current multi-entity behavior:
+The public query endpoint still preserves the established single-entity response behavior. Multi-entity input remains rejected by the production path until serializer equivalence and QueryService integration are completed.
+
+### Implemented retrieval path
 
 ```text
-Tell me about Laura and Robert
+Normalized query
+    ↓
+QueryPlan
+    ↓
+resolve_entities()
+    ↓
+RetrievalRequest
+    ↓
+RetrievalService.retrieve()
+    ↓
+RetrievalResult[MemoryStone]
 ```
 
-produces an explicit HTTP 501 response with candidate phrases. This is intentional. Ebe does not pretend to support multi-entity retrieval before that capability exists.
-
----
+This path supports one or more resolved entities. Multi-entity retrieval currently uses union semantics and removes duplicate Memory Stones by ID while preserving first-seen order.
 
 ## Current Query Modules
 
@@ -134,62 +158,71 @@ apps/api/app/services/query/
 ├── entity_resolver.py
 ├── models.py
 ├── normalizer.py
-└── planner.py
+├── planner.py
+└── retrieval.py
 
 apps/api/app/services/query_service.py
 apps/api/app/services/graph_recall.py
+apps/api/app/serializers/memory_stones.py
 ```
 
 Current responsibilities:
 
-| Component | Responsibility |
-|---|---|
-| `query_service.py` | Orchestrate the request | - complete
-| `normalizer.py` | Convert conversational text to a candidate query | - complete
-| `planner.py` | Determine current structural intent and candidate phrases | -complete
-| `entity_resolver.py` | Resolve canonical names and aliases | - complete
-| `graph_recall.py` | Retrieve directly related memory stones | 
-
----
+| Component | Responsibility | State |
+|---|---|---|
+| `query_service.py` | Orchestrate the public query request | Production, legacy retrieval path |
+| `normalizer.py` | Convert conversational text to a candidate query | Complete |
+| `planner.py` | Determine structural intent and candidate phrases | Complete |
+| `entity_resolver.py` | Resolve canonical names and aliases | Complete |
+| `retrieval.py` | Return related `MemoryStone` ORM objects for zero, one, or multiple entities | Complete foundation |
+| `graph_recall.py` | Relationship SQL, ordering, timelines, context, and production serialization | Temporary mixed-responsibility path |
+| `serializers/memory_stones.py` | Serialize individual Memory Stones | Existing; batch/pipeline boundary pending |
 
 ## Immediate Constraint
 
-`query_service.py` still contains entity-type retrieval branching. That is retrieval behavior, not orchestration.
+The retrieval boundary is implemented, but the public query service cannot safely switch to it yet because `graph_recall.py` currently combines:
 
-The proposed next boundary is:
+- relationship SQL;
+- deterministic ordering;
+- Memory Stone serialization;
+- timeline construction;
+- person-context construction.
 
-```text
-app/services/query/retrieval.py
-```
+Directly encoding ORM objects would risk changing the existing API response shape.
 
-with an internal request model capable of growing to support:
-
-- multiple entities;
-- graph intersections;
-- semantic fallback;
-- time filters;
-- ranking;
-- confidence;
-- provenance.
-
-This remains a proposal until the corresponding decision is approved.
-
----
-
-## Current Next Decision
-
-**EBE-005 — Establish retrieval boundary and retrieval request model**
-
-Current status:
+The approved next boundary is a dedicated serializer stage:
 
 ```text
-Proposed
-Approved by: Pending
+RetrievalService
+    ↓
+MemoryStone ORM objects
+    ↓
+Serializer
+    ↓
+stable transport objects
 ```
 
-Implementation must not begin merely because it appears in the roadmap. Wesley should approve the decision first.
+After serializer equivalence is verified, QueryService can be integrated with RetrievalService and the retrieval responsibilities in `graph_recall.py` can be retired incrementally.
 
----
+## Current Next Milestone
+
+**Serialization boundary and QueryService migration**
+
+Status:
+
+```text
+Approved
+Approved by: Wesley
+```
+
+Required sequence:
+
+1. add a collection serializer for retrieved Memory Stones;
+2. prove output equivalence with existing `graph_recall.py` responses;
+3. integrate `RetrievalService` into `query_service.py`;
+4. preserve existing single-entity API behavior;
+5. replace the multi-entity HTTP 501 only after the integrated response contract is approved;
+6. run focused tests and the complete suite.
 
 ## Start-of-Session Checklist
 

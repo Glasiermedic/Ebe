@@ -5,7 +5,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models import MemoryStone
-from app.serializers.memory_stones import serialize_memory_stone
+from app.services.memory_stone_transport import serialize_memory_stone
 from app.services.embeddings import EmbeddingProvider
 from app.services.extraction import MemoryExtractionProvider
 from app.services.memory_creation import create_memory_from_text

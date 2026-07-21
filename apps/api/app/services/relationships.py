@@ -6,7 +6,7 @@ from sqlalchemy import Table, select
 from sqlalchemy.orm import Session
 
 from app.models import Event, Person, Place
-from app.serializers.memory_stones import serialize_memory_stone
+from app.services.memory_stone_transport import serialize_memory_stone
 from app.services.memory_stones import get_memory_stone_or_404
 
 

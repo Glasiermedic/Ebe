@@ -48,6 +48,11 @@ class RetrievalService:
                 db.query(MemoryStone)
                 .join(MemoryStone.people)
                 .filter(Person.id == entity.id)
+                .order_by(
+                    MemoryStone.importance.desc(),
+                    MemoryStone.remembered_at.desc().nullslast(),
+                    MemoryStone.created_at.desc(),
+                )
                 .all()
             )
 
@@ -56,6 +61,11 @@ class RetrievalService:
                 db.query(MemoryStone)
                 .join(MemoryStone.places)
                 .filter(Place.id == entity.id)
+                .order_by(
+                    MemoryStone.importance.desc(),
+                    MemoryStone.remembered_at.desc().nullslast(),
+                    MemoryStone.created_at.desc(),
+                )
                 .all()
             )
 
@@ -64,7 +74,15 @@ class RetrievalService:
                 db.query(MemoryStone)
                 .join(MemoryStone.events)
                 .filter(Event.id == entity.id)
+                .order_by(
+                    MemoryStone.importance.desc(),
+                    MemoryStone.remembered_at.desc().nullslast(),
+                    MemoryStone.created_at.desc(),
+                )
                 .all()
             )
 
-        raise ValueError(f"Unsupported entity type: {resolved_entity.entity_type}")
+        raise ValueError(
+            "Unsupported entity type: "
+            f"{resolved_entity.entity_type}"
+        )

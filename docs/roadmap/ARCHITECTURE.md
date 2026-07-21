@@ -1,16 +1,17 @@
 # Ebe Architecture
 
-**Updated:** 2026-07-17 11:01 America/Los_Angeles
+**Updated:** 2026-07-19 America/Los_Angeles
 
 ## Architectural Principles
 
-1. **Single responsibility** — normalization, planning, resolution, retrieval, ranking, and response construction remain separable.
+1. **Single responsibility** — normalization, planning, resolution, retrieval, serialization, ranking, and response construction remain separable.
 2. **Deterministic before generative** — exact graph and structured retrieval should precede model synthesis.
 3. **Provenance is part of the result** — Ebe should explain how an entity and memory were found.
 4. **No silent fallback** — relaxed retrieval must be distinguishable from an exact match.
-5. **Facts remain separate from interpretation** — biblical or narrative enrichment must not become stored factual memory by accident.
-6. **Tests define verified behavior** — a roadmap item is not complete until its acceptance criteria are tested.
-7. **Inspect before refactoring** — use the repository snapshot and existing abstractions before proposing replacement code.
+5. **Domain objects before transport objects** — retrieval returns ORM/domain objects; serialization converts them into transport representations.
+6. **Facts remain separate from interpretation** — biblical or narrative enrichment must not become stored factual memory by accident.
+7. **Tests define verified behavior** — a roadmap item is not complete until its acceptance criteria are tested.
+8. **Inspect before refactoring** — use the repository snapshot and existing abstractions before proposing replacement code.
 
 ---
 
@@ -35,6 +36,10 @@ PostgreSQL + pgvector
 
 ## Current Query Architecture
 
+Two paths currently coexist during the staged migration.
+
+### Production API path
+
 ```text
 HTTP request
     ↓
@@ -48,10 +53,31 @@ Initial Planner
     ↓
 Single Entity Resolver
     ↓
-Graph Recall
+graph_recall.py
+    ├── relationship SQL
+    ├── ordering
+    └── Memory Stone serialization
     ↓
 API Response
 ```
+
+### Implemented retrieval components
+
+```text
+Normalized Query
+    ↓
+Planner
+    ↓
+resolve_entities()
+    ↓
+RetrievalRequest
+    ↓
+RetrievalService
+    ↓
+RetrievalResult containing MemoryStone ORM objects
+```
+
+The retrieval components support zero, one, or multiple resolved entities and multi-entity union retrieval with deduplication. They are not yet the production API path because the serializer boundary must be completed first.
 
 ## Target Query Architecture
 
@@ -77,7 +103,9 @@ Retrieval Engine
     ├── constrained vector search
     └── progressive fallback
     ↓
-Ranking and Evidence Evaluation
+Ranker and Evidence Evaluation
+    ↓
+Serializer
     ↓
 Response Builder
     ↓
@@ -85,6 +113,10 @@ Optional Grounded Synthesis
     ↓
 API Response
 ```
+
+The serializer converts retrieved domain objects into stable transport representations. The response builder assembles those serialized objects with query provenance, warnings, and retrieval metadata.
+
+---
 
 ---
 
@@ -172,14 +204,18 @@ It should not execute SQL.
 
 ### Retrieval engine
 
-Future boundary.
+Implemented foundational boundary; advanced strategies remain future work.
 
 Owns:
 
 - executing graph and vector retrieval strategies;
-- deduplicating memories;
-- recording strategy and fallback level;
-- returning evidence, not prose.
+- returning `MemoryStone` ORM/domain objects;
+- supporting single-entity and multi-entity union retrieval;
+- deduplicating memories by stable identity;
+- preserving deterministic first-seen order;
+- recording strategy and fallback metadata as those capabilities are added.
+
+It does not own JSON serialization or public response construction.
 
 ### Ranker
 
@@ -195,6 +231,24 @@ Owns consistent comparison across:
 - source confidence;
 - user confirmation.
 
+### Serializer
+
+Approved next boundary.
+
+Owns:
+
+- converting ORM/domain objects into transport representations;
+- preserving the established Memory Stone response shape;
+- relationship-aware Memory Stone serialization;
+- serializer reuse across REST, future conversational, and export consumers.
+
+Does not own:
+
+- SQL execution;
+- retrieval strategy;
+- query orchestration;
+- ranking.
+
 ### Response builder
 
 Future boundary.
@@ -202,11 +256,13 @@ Future boundary.
 Owns:
 
 - stable public response shape;
-- serialization;
+- assembly of serialized entities and memories;
 - query, entity, and retrieval provenance;
 - warnings;
 - unresolved phrases;
 - fallback disclosure.
+
+It should not execute retrieval SQL or contain domain serialization rules.
 
 ### Optional synthesis
 

@@ -1,6 +1,6 @@
 # Ebe Decision Log
 
-**Updated:** 2026-07-17 11:01 America/Los_Angeles
+**Updated:** 2026-07-19 America/Los_Angeles
 
 This file is append-oriented. Do not silently rewrite a completed or rejected decision to make history appear cleaner. Add a new entry that supersedes the prior decision.
 
@@ -8,11 +8,11 @@ This file is append-oriented. Do not silently rewrite a completed or rejected de
 
 ## EBE-001 — Separate query normalization and entity resolution
 
-**Type:** Architecture  
-**Recorded:** 2026-07-17 as a historical entry  
-**Proposed by:** ChatGPT  
-**Reviewed by:** Wesley  
-**Approved by:** Wesley  
+**Type:** Architecture
+**Recorded:** 2026-07-17 as a historical entry
+**Proposed by:** ChatGPT
+**Reviewed by:** Wesley
+**Approved by:** Wesley
 **Status:** Completed
 
 ### Context
@@ -55,11 +55,11 @@ Smaller components lower regression risk and make later multi-entity and intent-
 
 ## EBE-002 — Add a repository snapshot utility
 
-**Type:** Development Process  
-**Recorded:** 2026-07-17 as a historical entry  
-**Proposed by:** Wesley  
-**Reviewed by:** ChatGPT  
-**Approved by:** Wesley  
+**Type:** Development Process
+**Recorded:** 2026-07-17 as a historical entry
+**Proposed by:** Wesley
+**Reviewed by:** ChatGPT
+**Approved by:** Wesley
 **Status:** Completed
 
 ### Context
@@ -99,11 +99,11 @@ The script creates a common view of:
 
 ## EBE-003 — Add a pure initial query planner
 
-**Type:** Architecture  
-**Recorded:** 2026-07-17 as a historical entry  
-**Proposed by:** ChatGPT  
-**Reviewed by:** Wesley  
-**Approved by:** Wesley  
+**Type:** Architecture
+**Recorded:** 2026-07-17 as a historical entry
+**Proposed by:** ChatGPT
+**Reviewed by:** Wesley
+**Approved by:** Wesley
 **Status:** Completed
 
 ### Decision
@@ -138,11 +138,11 @@ Planning is distinct from normalization, identity resolution, and retrieval.
 
 ## EBE-004 — Integrate the planner and reject unfinished multi-entity retrieval explicitly
 
-**Type:** Product + Architecture  
-**Recorded:** 2026-07-17 as a historical entry  
-**Proposed by:** ChatGPT  
-**Reviewed by:** Wesley  
-**Approved by:** Wesley  
+**Type:** Product + Architecture
+**Recorded:** 2026-07-17 as a historical entry
+**Proposed by:** ChatGPT
+**Reviewed by:** Wesley
+**Approved by:** Wesley
 **Status:** Completed
 
 ### Decision
@@ -172,11 +172,11 @@ Ebe must not silently answer only the first entity or misrepresent a partial res
 
 ## EBE-005 — Establish a retrieval boundary and request model
 
-**Type:** Architecture  
-**Created:** 2026-07-17 11:01 America/Los_Angeles  
-**Proposed by:** ChatGPT  
-**Reviewed by:** Pending  
-**Approved by:** Pending  
+**Type:** Architecture
+**Created:** 2026-07-17 11:01 America/Los_Angeles
+**Proposed by:** ChatGPT
+**Reviewed by:** Pending
+**Approved by:** Pending
 **Status:** Proposed
 
 ### Context
@@ -253,11 +253,11 @@ Extract retrieval behind one service boundary while preserving all public behavi
 
 ## EBE-006 — Adopt a durable engineering notebook
 
-**Type:** Development Process  
-**Created:** 2026-07-17 11:01 America/Los_Angeles  
-**Proposed by:** Wesley  
-**Reviewed by:** ChatGPT  
-**Approved by:** Wesley  
+**Type:** Development Process
+**Created:** 2026-07-17 11:01 America/Los_Angeles
+**Proposed by:** Wesley
+**Reviewed by:** ChatGPT
+**Approved by:** Wesley
 **Status:** Approved
 
 ### Context
@@ -308,11 +308,11 @@ The repository should preserve:
 
 ## EBE-007 — Inspect existing abstractions before implementing suggested code
 
-**Type:** Development Process  
-**Created:** 2026-07-17 11:01 America/Los_Angeles  
-**Proposed by:** ChatGPT, based on implementation history  
-**Reviewed by:** Wesley through repeated use of inspection-first workflow  
-**Approved by:** Wesley  
+**Type:** Development Process
+**Created:** 2026-07-17 11:01 America/Los_Angeles
+**Proposed by:** ChatGPT, based on implementation history
+**Reviewed by:** Wesley through repeated use of inspection-first workflow
+**Approved by:** Wesley
 **Status:** Approved
 
 ### Context
@@ -354,11 +354,11 @@ The workflow is documented in `docs/developer/DEVELOPMENT_WORKFLOW.md`.
 
 ## EBE-008 — Defer unrestricted multi-hop graph expansion until retrieval planning exists
 
-**Type:** Architecture  
-**Created:** 2026-07-17 11:01 America/Los_Angeles  
-**Proposed by:** ChatGPT after reviewing the existing graph-recall abstraction  
-**Reviewed by:** Wesley  
-**Approved by:** Inferred from proceeding to the query layer; confirm if desired  
+**Type:** Architecture
+**Created:** 2026-07-17 11:01 America/Los_Angeles
+**Proposed by:** ChatGPT after reviewing the existing graph-recall abstraction
+**Reviewed by:** Wesley
+**Approved by:** Inferred from proceeding to the query layer; confirm if desired
 **Status:** Approved with confirmation recommended
 
 ### Context
@@ -387,3 +387,89 @@ Those belong in a retrieval architecture rather than directly inside a person-co
 - **API:** Avoids premature context-schema expansion
 - **Database:** None
 - **Open point:** Wesley may explicitly confirm or revise this historical interpretation
+
+
+## ADR-0007 — Separate Retrieval From Serialization
+
+**Type:** Architecture
+**Created:** 2026-07-19
+**Proposed by:** ChatGPT after inspection of `graph_recall.py`
+**Reviewed by:** Wesley
+**Approved by:** Wesley
+**Status:** Accepted
+
+### Context
+
+During implementation of multi-entity retrieval we discovered that graph_recall.py combined:
+
+- SQL graph traversal
+- result ordering
+- JSON serialization
+- timeline generation
+- context generation
+
+Migrating all of this into RetrievalService would violate single-responsibility principles.
+
+### Decision
+
+RetrievalService will return ORM models only.
+
+Serialization will become its own pipeline stage.
+
+graph_recall.py will remain temporarily until serialization is migrated.
+
+### Consequences
+
+#### Pros
+
+- cleaner architecture
+- reusable retrieval engine
+- easier testing
+- easier ranking implementation
+- easier semantic retrieval
+- easier Graph + Vector integration
+
+#### Cons
+
+- temporary duplication during migration
+
+---
+
+## EBE-009 — Complete the foundational retrieval boundary
+
+**Type:** Architecture + Implementation
+**Created:** 2026-07-19
+**Proposed by:** ChatGPT
+**Reviewed by:** Wesley
+**Approved by:** Wesley
+**Status:** Completed
+
+### Context
+
+EBE-005 proposed a typed retrieval boundary. Subsequent implementation added immutable request/result contracts, ordered multi-entity resolution, and a dedicated retrieval service.
+
+### Decision
+
+Accept the foundational retrieval boundary as implemented:
+
+- `RetrievalRequest` and `RetrievalResult` are immutable contracts;
+- `resolve_entities()` resolves every candidate phrase in order;
+- unresolved phrases currently fail strictly with HTTP 404;
+- `RetrievalService` returns `MemoryStone` ORM/domain objects;
+- zero-, single-, and multi-entity requests are supported;
+- multi-entity retrieval currently uses union semantics;
+- duplicate Memory Stones are removed by ID;
+- first-seen ordering is preserved.
+
+### Verification
+
+- resolver tests cover canonical names, aliases, missing positions, mixed entity types, and order preservation;
+- retrieval tests cover person, place, event, empty results, zero entities, union retrieval, mixed entities, and deduplication;
+- full suite reported green with 83 passing tests.
+
+### Impact
+
+- **API:** No production API integration yet
+- **Database:** None
+- **Supersedes:** EBE-005 as a pending proposal
+- **Next:** Implement ADR-0007 serializer boundary before QueryService integration

@@ -12,7 +12,7 @@ from app.models import (
     memory_stone_people,
     memory_stone_places,
 )
-from app.serializers.memory_stones import serialize_memory_stone
+from app.services.memory_stone_transport import serialize_memory_stone
 from app.services.embeddings import EmbeddingProvider
 from app.services.extraction import MemoryExtractionProvider
 from app.services.identity import find_person_by_name

@@ -11,7 +11,10 @@ from app.schemas import (
     MemoryStoneRead,
     MemoryStoneUpdate,
 )
-from app.serializers.memory_stones import serialize_memory_stone
+from app.services.memory_stone_transport import (
+    serialize_memory_stone,
+    serialize_memory_stones,
+)
 from app.services.memory_stones import get_memory_stone_or_404
 
 
@@ -52,10 +55,7 @@ def list_memory_stones(
 
     stones = db.scalars(statement).all()
 
-    return [
-        serialize_memory_stone(stone, db)
-        for stone in stones
-    ]
+    return serialize_memory_stones(stones, db)
 
 
 @router.get(

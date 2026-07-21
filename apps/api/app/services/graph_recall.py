@@ -14,7 +14,7 @@ from app.models import (
     memory_stone_people,
     memory_stone_places,
 )
-from app.serializers.memory_stones import serialize_memory_stone
+from app.services.memory_stone_transport import serialize_memory_stones
 
 
 def _get_related_memories(
@@ -51,10 +51,7 @@ def _get_related_memories(
 
     stones = db.scalars(statement).all()
 
-    return [
-        serialize_memory_stone(stone, db)
-        for stone in stones
-    ]
+    return serialize_memory_stones(stones, db)
 
 
 def get_person_memories(
@@ -137,10 +134,7 @@ def get_person_timeline(
 
     stones = db.scalars(statement).all()
 
-    return [
-        serialize_memory_stone(stone, db)
-        for stone in stones
-    ]
+    return serialize_memory_stones(stones, db)
 
 def _get_related_people(
     memories: list[dict[str, Any]],
