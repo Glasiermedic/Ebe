@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.schemas import (
+    MultiEntityQueryResultRead,
     QueryRequest,
     QueryResultRead,
 )
@@ -17,7 +18,9 @@ router = APIRouter(
 
 @router.post(
     "",
-    response_model=QueryResultRead,
+    response_model=(
+        QueryResultRead | MultiEntityQueryResultRead
+    ),
 )
 def query_memory(
     request: QueryRequest,

@@ -209,6 +209,22 @@ class QueryResultRead(BaseModel):
     memories: list[MemoryStoneRead]
 
 
+class ResolvedEntityRead(BaseModel):
+    entity_type: str
+    matched_by: str
+    matched_value: str
+    entity: PersonRead | PlaceRead | EventRead
+
+
+class MultiEntityQueryResultRead(BaseModel):
+    query: str
+    normalized_query: str
+    intent: str
+    entities: list[ResolvedEntityRead]
+    retrieval_strategy: str
+    memories: list[MemoryStoneRead]
+
+
 class SemanticSearchCreate(BaseModel):
     query: str = Field(min_length=1, max_length=2000)
     limit: int = Field(default=5, ge=1, le=20)

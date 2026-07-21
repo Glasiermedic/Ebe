@@ -2,6 +2,39 @@
 
 This is not a replacement for Git history. It explains the architectural evolution in product terms.
 
+## 2026-07-21
+
+### Session: Serialization Boundary, QueryService Migration, and Public Multi-Entity Queries
+
+#### Completed
+
+- separated relationship loading from Memory Stone serialization;
+- added immutable connection bundles;
+- reduced relationship loading to three batched queries per collection;
+- converted the Memory Stone serializer into a database-independent function;
+- preserved the established Memory Stone response shape;
+- migrated QueryService to `RetrievalService`;
+- preserved deterministic retrieval ordering;
+- enabled public multi-entity query responses;
+- exposed ordered entity provenance;
+- labeled multi-entity retrieval as `entity_union`;
+- supported mixed entity types and aliases;
+- retained strict HTTP 404 behavior for unresolved candidates;
+- removed the temporary multi-entity HTTP 501 boundary.
+
+#### Verification
+
+```text
+95 tests passing
+0 failures
+Ruff passing
+Compile checks passing
+```
+
+#### Next Milestone
+
+Deterministic retrieval-plan generation for exact graph intersections and progressive fallback.
+
 ## 2026-07-19
 ### Session: Multi-Entity Retrieval Foundation
 #### Objective

@@ -1,6 +1,6 @@
 # Ebe Architecture
 
-**Updated:** 2026-07-19 America/Los_Angeles
+**Updated:** 2026-07-21 America/Los_Angeles
 
 ## Architectural Principles
 
@@ -14,6 +14,46 @@
 8. **Inspect before refactoring** — use the repository snapshot and existing abstractions before proposing replacement code.
 
 ---
+
+## Verified Query Architecture — 2026-07-21
+
+This section supersedes older production-query diagrams below where they conflict.
+
+```text
+HTTP request
+    ↓
+Router
+    ↓
+QueryService
+    ↓
+Normalizer
+    ↓
+Planner
+    ↓
+Entity Resolver
+    ↓
+RetrievalService
+    ↓
+MemoryStone ORM/domain objects
+    ↓
+Batch Relationship Loader
+    ↓
+Pure Serializer
+    ↓
+Single- or Multi-Entity Response
+```
+
+Boundary rules now enforced:
+
+- retrieval returns ORM/domain objects;
+- relationship loading owns SQL required for transport metadata;
+- pure serialization accepts no database session and executes no SQL;
+- QueryService does not branch between person, place, and event retrieval;
+- QueryService no longer imports `graph_recall.py`;
+- single-entity compatibility is preserved;
+- multi-entity union semantics are explicitly labeled `entity_union`.
+
+`graph_recall.py` remains active for dedicated graph-recall, timeline, and person-context endpoints.
 
 ## Current Architecture
 

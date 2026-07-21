@@ -343,3 +343,59 @@ Decision:
 ```text
 EBE-005
 ```
+
+## Milestone 17 — Retrieval foundation
+
+**Status:** Completed
+
+Established immutable retrieval contracts, ordered entity resolution, single- and multi-entity union retrieval, deduplication by Memory Stone ID, and deterministic first-seen ordering.
+
+Verification:
+
+```text
+83 tests passing
+```
+
+---
+
+## Milestone 18 — Serialization Boundary and QueryService migration
+
+**Status:** Completed
+
+Established database-independent Memory Stone serialization, immutable connection bundles, three-query batch relationship loading, deterministic retrieval ordering, and QueryService integration with `RetrievalService`.
+
+Verification:
+
+```text
+92 tests passing
+0 failures
+```
+
+---
+
+## Milestone 19 — Public multi-entity query contract
+
+**Status:** Completed
+
+Established public multi-entity responses, ordered resolved-entity provenance, explicit `entity_union` labeling, mixed entity-type support, alias-aware resolution, strict unresolved-candidate handling, and preserved single-entity compatibility.
+
+Verification:
+
+```text
+95 tests passing
+0 failures
+```
+
+---
+
+## Next Milestone — Retrieval plan generation
+
+**Status:** Proposed
+
+Target:
+
+- represent exact and fallback retrieval steps;
+- place the full entity intersection first;
+- generate deterministic pairwise fallback combinations;
+- label every step with strategy, level, and reason;
+- execute no SQL during planning.

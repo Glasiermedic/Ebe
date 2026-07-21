@@ -1,7 +1,7 @@
 # Ebe Engineering Roadmap
 
-**Updated:** 2026-07-17 11:01 America/Los_Angeles  
-**Owner:** Wesley  
+**Updated:** 2026-07-17 11:01 America/Los_Angeles
+**Owner:** Wesley
 **Planning partner:** ChatGPT
 
 ## Status Vocabulary
@@ -190,7 +190,7 @@ The retrieval layer intentionally returns ORM models rather than serialized API 
 ---
 ## B2.1 Serialization Boundary
 
-**Status:** Approved
+**Status:** Completed
 
 ### Goal
 
@@ -218,9 +218,30 @@ Serializer
 - query_service no longer performs serialization
 
 ---
+## B2.2 QueryService Retrieval Integration
+
+**Status:** Completed
+
+### Completed
+
+- QueryService constructs typed `RetrievalRequest` objects;
+- QueryService delegates database retrieval to `RetrievalService`;
+- QueryService serializes results through the new transport boundary;
+- QueryService no longer imports or dispatches through `graph_recall.py`;
+- deterministic Memory Stone ordering is preserved;
+- canonical-name and alias provenance is preserved;
+- no database migration was required.
+
+### Verification
+
+```text
+92 tests passing at completion
+0 failures
+```
+
 ## B3. Multi-entity resolution
 
-**Status:** Planned  
+**Status:** Completed
 **Depends on:** B2.1
 
 ### Goal
@@ -269,9 +290,53 @@ Preferred architecture: the planner or retrieval policy decides strictness based
 
 ---
 
+## B3.1 Public Multi-Entity Response Contract
+
+**Status:** Completed
+
+### Completed
+
+- added a dedicated multi-entity response schema;
+- preserved the existing single-entity response schema;
+- exposed ordered resolved entities and match provenance;
+- labeled retrieval semantics as `entity_union`;
+- enabled mixed person, place, and event queries;
+- preserved alias provenance;
+- retained strict all-or-nothing resolution;
+- replaced the temporary HTTP 501 boundary.
+
+### Current retrieval semantics
+
+```text
+direct memories for entity 1
++
+direct memories for entity 2
++
+direct memories for additional entities
+    ↓
+deduplicate by Memory Stone ID
+    ↓
+preserve first-seen order
+```
+
+This is union retrieval. It does not claim that every returned memory is shared by every resolved entity.
+
+### Verification
+
+```text
+95 tests passing
+0 failures
+```
+
+### Next
+
+Generate deterministic graph-intersection and fallback plans.
+
+---
+
 ## B4. Retrieval plan generation
 
-**Status:** Planned  
+**Status:** Planned
 **Depends on:** B3
 
 ### Goal
@@ -311,7 +376,7 @@ Progressive fallback:
 
 ## B5. Multi-entity graph execution
 
-**Status:** Planned  
+**Status:** Planned
 **Depends on:** B4
 
 ### Goal
@@ -341,7 +406,7 @@ Execute graph intersections and pairwise fallbacks.
 
 ## B6. Semantic fallback and graph-vector fusion
 
-**Status:** Planned  
+**Status:** Planned
 **Depends on:** B5
 
 ### Goal
@@ -368,7 +433,7 @@ exact graph
 
 ## B7. Response builder
 
-**Status:** Planned  
+**Status:** Planned
 **Depends on:** B1–B6 as needed
 
 ### Goal

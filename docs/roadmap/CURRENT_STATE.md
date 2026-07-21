@@ -1,6 +1,6 @@
 # Ebe Current State
 
-**Updated:** 2026-07-19 America/Los_Angeles
+**Updated:** 2026-07-21 America/Los_Angeles
 **Project owner:** Wesley
 **Technical planning partner:** ChatGPT
 **Repository root:** `~/projects/ebe`
@@ -8,6 +8,69 @@
 **Current build state reported by Wesley:** Green
 
 ---
+
+## Authoritative Query Update — 2026-07-21
+
+This section supersedes older query-pipeline descriptions below where they conflict.
+
+### Verified build state
+
+```text
+95 tests passing
+0 failures
+Ruff passing
+Compile checks passing
+```
+
+### Production query pipeline
+
+```text
+POST /query
+    ↓
+QueryService
+    ↓
+Normalizer
+    ↓
+Planner
+    ↓
+Entity Resolver
+    ↓
+RetrievalRequest
+    ↓
+RetrievalService
+    ↓
+MemoryStone ORM/domain objects
+    ↓
+Batch relationship loader
+    ↓
+Pure serializer
+    ↓
+Single- or multi-entity API response
+```
+
+### Serialization boundary
+
+The Memory Stone serializer no longer executes SQL. Relationship metadata is loaded separately using three batched queries per Memory Stone collection: people, places, and events.
+
+### QueryService integration
+
+QueryService no longer dispatches through `graph_recall.py`. It delegates retrieval to `RetrievalService`, then passes retrieved Memory Stone objects through the transport and serializer boundary.
+
+### Public multi-entity behavior
+
+`POST /query` now supports ordered multi-entity requests using strict resolution and explicit `entity_union` retrieval semantics.
+
+- every candidate phrase must resolve;
+- unresolved candidates return HTTP 404 and identify the failed phrase;
+- ambiguous aliases continue to return HTTP 409;
+- candidates are never silently dropped;
+- duplicate Memory Stones are removed by ID;
+- first-seen ordering is preserved;
+- single-entity response behavior remains unchanged.
+
+### Next milestone
+
+Generate deterministic retrieval plans for exact graph intersections and progressive fallback.
 
 ## Current Product Definition
 
@@ -75,7 +138,7 @@ PostgreSQL facts
 - multi-entity union retrieval
 - deduplication by Memory Stone ID
 - deterministic first-seen ordering
-- 83 automated tests passing
+- 95 automated tests passing
 
 ### Natural-language query layer
 

@@ -473,3 +473,122 @@ Accept the foundational retrieval boundary as implemented:
 - **Database:** None
 - **Supersedes:** EBE-005 as a pending proposal
 - **Next:** Implement ADR-0007 serializer boundary before QueryService integration
+
+## EBE-010 — Separate relationship loading from Memory Stone serialization
+
+**Type:** Architecture + Implementation
+**Created:** 2026-07-21
+**Proposed by:** ChatGPT
+**Reviewed by:** Wesley
+**Approved by:** Wesley
+**Status:** Completed
+
+### Decision
+
+Separate the responsibilities into:
+
+```text
+MemoryStone ORM objects
+    ↓
+batch relationship loader
+    ↓
+immutable relationship bundles
+    ↓
+pure serializer
+```
+
+The pure serializer accepts no database session and executes no SQL. Relationship metadata is loaded using three queries per Memory Stone collection.
+
+### Impact
+
+- **API:** Existing response shape preserved
+- **Database:** No migration
+- **Performance:** Three relationship queries per collection instead of per Memory Stone
+- **Verification:** Full suite green
+
+---
+
+## EBE-011 — Integrate RetrievalService into QueryService
+
+**Type:** Architecture + Implementation
+**Created:** 2026-07-21
+**Proposed by:** ChatGPT
+**Reviewed by:** Wesley
+**Approved by:** Wesley
+**Status:** Completed
+
+### Decision
+
+Migrate the production single-entity query path to:
+
+```text
+Resolver
+    ↓
+RetrievalRequest
+    ↓
+RetrievalService
+    ↓
+batch relationship loader
+    ↓
+pure serializer
+```
+
+### Compatibility
+
+- existing single-entity response behavior preserved;
+- canonical-name and alias provenance preserved;
+- deterministic ordering preserved;
+- no database migration.
+
+### Verification
+
+```text
+92 tests passing at completion
+0 failures
+```
+
+---
+
+## EBE-012 — Approve the public multi-entity query response contract
+
+**Type:** Product + Architecture + Implementation
+**Created:** 2026-07-21
+**Proposed by:** ChatGPT
+**Reviewed by:** Wesley
+**Approved by:** Wesley
+**Status:** Completed
+
+### Decision
+
+Add a separate multi-entity response containing:
+
+```text
+query
+normalized_query
+intent
+entities
+retrieval_strategy
+memories
+```
+
+Each resolved entity retains its type and match provenance. The initial strategy is explicitly labeled `entity_union`.
+
+### Resolution policy
+
+- all candidate phrases must resolve;
+- unresolved candidates return HTTP 404;
+- the failed candidate phrase is disclosed;
+- ambiguous aliases return HTTP 409;
+- partial results are not returned;
+- no candidate is silently dropped.
+
+### Verification
+
+```text
+95 tests passing
+0 failures
+```
+
+### Next
+
+Implement deterministic retrieval-plan generation for exact intersections and progressive graph fallback.
